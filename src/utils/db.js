@@ -93,35 +93,32 @@ export async function fetchCustomers() {
   return data || []
 }
 
-export async function fetchProduction() {
-  const { data } = await supabase.from('sales_production').select('*')
-  return data || []
+async function fetchAll(table, extra='') {
+  let all = [], from = 0, size = 1000
+  while (true) {
+    let q = supabase.from(table).select('*').range(from, from + size - 1)
+    const { data, error } = await q
+    if (error) throw new Error(error.message)
+    if (!data || data.length === 0) break
+    all = all.concat(data)
+    if (data.length < size) break
+    from += size
+  }
+  return all
 }
 
-export async function fetchAllocation() {
-  const { data } = await supabase.from('sales_allocation').select('*')
-  return data || []
-}
+export async function fetchProduction() { return fetchAll('sales_production') }
 
-export async function fetchPurchaseOrders() {
-  const { data } = await supabase.from('sales_purchase_orders').select('*')
-  return data || []
-}
+export async function fetchAllocation() { return fetchAll('sales_allocation') }
 
-export async function fetchDR4() {
-  const { data } = await supabase.from('sales_dr4').select('*')
-  return data || []
-}
+export async function fetchPurchaseOrders() { return fetchAll('sales_purchase_orders') }
 
-export async function fetchDR5() {
-  const { data } = await supabase.from('sales_dr5').select('*')
-  return data || []
-}
+export async function fetchDR4() { return fetchAll('sales_dr4') }
 
-export async function fetchInvoicesDetail() {
-  const { data } = await supabase.from('sales_invoices_detail').select('*').order('invoice_date', { ascending: false })
-  return data || []
-}
+export async function fetchDR5() { return fetchAll('sales_dr5') }
+
+export async function fetchInvoicesDetail() { return fetchAll('sales_invoices_detail') }
+
 
 export async function createSalesFile(filename) {
   const { data, error } = await supabase
