@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
-import SnapshotView from './components/SnapshotView'
+import Sidebar from './components/Sidebar'
+import SalesDashboard from './components/SalesDashboard'
 import CustomerCard from './components/CustomerCard'
 import ProductionView from './components/ProductionView'
 import CustomerInfoView from './components/CustomerInfoView'
 import InvoicesView from './components/InvoicesView'
 import BOView from './components/BOView'
+import SnapshotView from './components/SnapshotView'
 import FileUpload from './components/FileUpload'
 import {
   fetchCustomers, fetchSalesOrders, fetchProduction,
@@ -13,18 +15,8 @@ import {
 } from './utils/db'
 import './App.css'
 
-const TABS = [
-  { key: 'snapshot',   label: 'תוכנית / משלוח / חשבוניות' },
-  { key: 'customer',   label: 'כרטיס לקוח' },
-  { key: 'production', label: 'תכנון ייצור' },
-  { key: 'bo',         label: 'Back Orders' },
-  { key: 'invoices',   label: 'חשבוניות' },
-  { key: 'custinfo',   label: 'פרטי לקוח' },
-  { key: 'upload',     label: '⬆ העלאת קובץ' },
-]
-
 export default function App() {
-  const [tab, setTab] = useState('snapshot')
+  const [page, setPage] = useState('sales')
   const [data, setData] = useState({
     customers: [], salesOrders: [], production: [],
     allocation: [], purchaseOrders: [], dr4: [], dr5: [],
@@ -55,29 +47,22 @@ export default function App() {
     })
   }
 
+  const loading = !loaded && page !== 'snapshot' && page !== 'upload'
+
   return (
-    <div className="page" dir="rtl">
-      <h1 className="page-title">דאשבורד מכירות — Aquestia</h1>
-      <div className="tabbar">
-        {TABS.map(t => (
-          <button key={t.key} className={'tabbtn' + (tab === t.key ? ' active' : '')}
-            onClick={() => { setTab(t.key); if (t.key === 'upload') {} }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div className="tab-content">
-        {!loaded && tab !== 'snapshot' && tab !== 'upload' && (
-          <div style={{ color: 'var(--text-muted)', fontSize: 14, padding: '2rem 0' }}>טוען נתונים...</div>
-        )}
-        {tab === 'snapshot'   && <SnapshotView />}
-        {tab === 'customer'   && loaded && <CustomerCard customers={data.customers} salesOrders={data.salesOrders} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
-        {tab === 'production' && loaded && <ProductionView production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
-        {tab === 'bo'         && loaded && <BOView bo={data.bo} />}
-        {tab === 'invoices'   && loaded && <InvoicesView invoices={data.invoicesDetail} />}
-        {tab === 'custinfo'   && loaded && <CustomerInfoView customers={data.customers} />}
-        {tab === 'upload'     && <FileUpload onUploaded={reload} />}
-      </div>
+    <div className="layout" dir="rtl">
+      <Sidebar page={page} onNav={setPage} />
+      <main className="main-content">
+        {loading && <div className="loading">טוען נתונים...</div>}
+        {page === 'sales'      && loaded && <SalesDashboard orders={data.salesOrders} />}
+        {page === 'bo'         && loaded && <BOView bo={data.bo} />}
+        {page === 'invoices'   && loaded && <InvoicesView invoices={data.invoicesDetail} />}
+        {page === 'production' && loaded && <ProductionView production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
+        {page === 'customer'   && loaded && <CustomerCard customers={data.customers} salesOrders={data.salesOrders} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
+        {page === 'custinfo'   && loaded && <CustomerInfoView customers={data.customers} />}
+        {page === 'snapshot'   && <SnapshotView />}
+        {page === 'upload'     && <FileUpload onUploaded={reload} />}
+      </main>
     </div>
   )
 }
