@@ -180,6 +180,8 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
     setEditingNote(null)
     setSaving(false)
   }
+
+  function getShortages(doc) {
     return allocation.filter(a =>
       a.number === doc &&
       a.reference === 'Sales order' &&
