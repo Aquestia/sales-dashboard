@@ -30,6 +30,7 @@ table { border-collapse: collapse; width: 100%; }
 .sidebar-logo {
   padding: 18px 16px; font-size: 16px; font-weight: 600;
   color: #fff; border-bottom: 1px solid #2e2e36;
+  position: sticky; top: 0; background: #1a1a1f; z-index: 1;
 }
 .nav-group { padding: 14px 0 4px; }
 .nav-group-label {
