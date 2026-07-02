@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { fmt } from '../utils/helpers'
+import { saveProcurementNote } from '../utils/db'
 
 const MONTHS_HE = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ']
 
@@ -20,7 +21,7 @@ const DETAIL_COLS = [
   ['open_sales_amount','שווי פתוח'], ['past_due','פיגור $'], ['sales_status','סטטוס']
 ]
 
-export default function BOView({ bo, allocation = [], purchaseOrders = [] }) {
+export default function BOView({ bo, allocation = [], purchaseOrders = [], procurementNotes = {} }) {
   const [selectedMonth, setSelectedMonth] = useState(null)
 
   const totalBO    = bo.reduce((s, r) => s + (r.back_orders_amount || 0), 0)
@@ -150,7 +151,7 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [] }) {
 
             {/* Customer accordion */}
             {custGroups.map((grp, gi) => (
-              <CustomerGroup key={grp.customer} grp={grp} cols={DETAIL_COLS} allocation={allocation} purchaseOrders={purchaseOrders} />
+              <CustomerGroup key={grp.customer} grp={grp} cols={DETAIL_COLS} allocation={allocation} purchaseOrders={purchaseOrders} procurementNotes={procurementNotes} />
             ))}
           </div>
         )
@@ -160,11 +161,25 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [] }) {
   )
 }
 
-function CustomerGroup({ grp, cols, allocation, purchaseOrders }) {
+function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes }) {
   const [open, setOpen] = useState(false)
-  const [openShortage, setOpenShortage] = useState(null) // doc key
+  const [openShortage, setOpenShortage] = useState(null)
+  const [notes, setNotes] = useState(procurementNotes)
+  const [editingNote, setEditingNote] = useState(null) // item_number
+  const [saving, setSaving] = useState(false) // doc key
 
-  function getShortages(doc) {
+  async function saveNote(itemNumber, noteText) {
+    setSaving(true)
+    const existing = notes[itemNumber] || {}
+    await saveProcurementNote(itemNumber, {
+      note_procurement: noteText,
+      note_tapi: existing.note_tapi || '',
+      treatment_status: existing.treatment_status || '',
+    })
+    setNotes(prev => ({ ...prev, [itemNumber]: { ...existing, note_procurement: noteText } }))
+    setEditingNote(null)
+    setSaving(false)
+  }
     return allocation.filter(a =>
       a.number === doc &&
       a.reference === 'Sales order' &&
@@ -256,7 +271,7 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders }) {
                             <table style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
                               <thead>
                                 <tr>
-                                  {['מק"ט','שם פריט','סוג חוסר','כמות חסרה','תאריך נדרש','הזמנת רכש','ספק','תאריך אספקה','סטטוס'].map(h => (
+                                  {['מק"ט','שם פריט','סוג חוסר','כמות חסרה','תאריך נדרש','הזמנת רכש','ספק','תאריך אספקה','סטטוס','הערה'].map(h => (
                                     <th key={h} style={{ textAlign: 'right', padding: '4px 8px', color: 'var(--text-muted)', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>{h}</th>
                                   ))}
                                 </tr>
@@ -284,6 +299,33 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders }) {
                                             : <span style={{ color: 'var(--green-dark)' }}>בזמן</span>)
                                           : <span style={{ color: 'var(--red-dark)', fontWeight: 600 }}>אין הזמנת רכש</span>
                                         }
+                                      </td>
+                                      <td style={{ padding: '4px 8px', minWidth: 180 }}>
+                                        {editingNote === s.item_number ? (
+                                          <div style={{ display: 'flex', gap: 4 }}>
+                                            <input
+                                              defaultValue={notes[s.item_number]?.note_procurement || ''}
+                                              id={`note-${s.item_number}`}
+                                              style={{ height: 28, fontSize: 11, flex: 1 }}
+                                              autoFocus
+                                            />
+                                            <button onClick={() => saveNote(s.item_number, document.getElementById(`note-${s.item_number}`).value)}
+                                              disabled={saving}
+                                              style={{ fontSize: 11, padding: '2px 8px', background: 'var(--blue-dark)', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                                              {saving ? '...' : '💾'}
+                                            </button>
+                                            <button onClick={() => setEditingNote(null)}
+                                              style={{ fontSize: 11, padding: '2px 6px', background: 'none', border: '0.5px solid var(--border-tbl)', borderRadius: 4, cursor: 'pointer' }}>✕</button>
+                                          </div>
+                                        ) : (
+                                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                            <span style={{ fontSize: 11, color: notes[s.item_number]?.note_procurement ? 'var(--text-main)' : 'var(--text-hint)' }}>
+                                              {notes[s.item_number]?.note_procurement || 'הוסף הערה...'}
+                                            </span>
+                                            <button onClick={() => setEditingNote(s.item_number)}
+                                              style={{ fontSize: 11, padding: '1px 6px', background: 'none', border: '0.5px solid var(--border-tbl)', borderRadius: 4, cursor: 'pointer', color: 'var(--text-muted)' }}>✏️</button>
+                                          </div>
+                                        )}
                                       </td>
                                     </tr>
                                   )

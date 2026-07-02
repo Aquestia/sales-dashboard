@@ -119,3 +119,32 @@ export async function fetchBO() {
   const { data } = await supabase.from('sales_bo').select('*')
   return data || []
 }
+
+export async function fetchProcurementNotes() {
+  const { data } = await supabase.from('procurement_notes').select('*')
+  const map = {}
+  ;(data || []).forEach(n => { map[n.item_number] = n })
+  return map
+}
+
+export async function saveProcurementNote(itemNumber, fields) {
+  const { data: existing } = await supabase
+    .from('procurement_notes')
+    .select('id')
+    .eq('item_number', itemNumber)
+    .maybeSingle()
+
+  const payload = {
+    item_number: itemNumber,
+    sales_order: '',
+    line_number: '',
+    updated_at: new Date().toISOString(),
+    ...fields
+  }
+
+  if (existing?.id) {
+    await supabase.from('procurement_notes').update(payload).eq('id', existing.id)
+  } else {
+    await supabase.from('procurement_notes').insert(payload)
+  }
+}

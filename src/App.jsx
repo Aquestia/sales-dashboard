@@ -11,7 +11,7 @@ import FileUpload from './components/FileUpload'
 import {
   fetchCustomers, fetchSalesOrders, fetchProduction,
   fetchAllocation, fetchPurchaseOrders, fetchDR4, fetchDR5,
-  fetchInvoicesDetail, fetchBO
+  fetchInvoicesDetail, fetchBO, fetchProcurementNotes
 } from './utils/db'
 import './App.css'
 
@@ -20,7 +20,7 @@ export default function App() {
   const [data, setData] = useState({
     customers: [], salesOrders: [], production: [],
     allocation: [], purchaseOrders: [], dr4: [], dr5: [],
-    invoicesDetail: [], bo: []
+    invoicesDetail: [], bo: [], procurementNotes: {}
   })
   const [loaded, setLoaded] = useState(false)
 
@@ -28,9 +28,9 @@ export default function App() {
     Promise.all([
       fetchCustomers(), fetchSalesOrders(), fetchProduction(),
       fetchAllocation(), fetchPurchaseOrders(), fetchDR4(), fetchDR5(),
-      fetchInvoicesDetail(), fetchBO()
-    ]).then(([customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo]) => {
-      setData({ customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo })
+      fetchInvoicesDetail(), fetchBO(), fetchProcurementNotes()
+    ]).then(([customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo, procurementNotes]) => {
+      setData({ customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo, procurementNotes })
       setLoaded(true)
     })
   }, [])
@@ -40,9 +40,9 @@ export default function App() {
     Promise.all([
       fetchCustomers(), fetchSalesOrders(), fetchProduction(),
       fetchAllocation(), fetchPurchaseOrders(), fetchDR4(), fetchDR5(),
-      fetchInvoicesDetail(), fetchBO()
-    ]).then(([customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo]) => {
-      setData({ customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo })
+      fetchInvoicesDetail(), fetchBO(), fetchProcurementNotes()
+    ]).then(([customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo, procurementNotes]) => {
+      setData({ customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo, procurementNotes })
       setLoaded(true)
     })
   }
@@ -55,7 +55,7 @@ export default function App() {
       <main className="main-content">
         {loading && <div className="loading">טוען נתונים...</div>}
         {page === 'sales'      && loaded && <SalesDashboard orders={data.salesOrders} />}
-        {page === 'bo'         && loaded && <BOView bo={data.bo} allocation={data.allocation} purchaseOrders={data.purchaseOrders} />}
+        {page === 'bo'         && loaded && <BOView bo={data.bo} allocation={data.allocation} purchaseOrders={data.purchaseOrders} procurementNotes={data.procurementNotes} />}
         {page === 'invoices'   && loaded && <InvoicesView invoices={data.invoicesDetail} />}
         {page === 'production' && loaded && <ProductionView production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'customer'   && loaded && <CustomerCard customers={data.customers} salesOrders={data.salesOrders} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
