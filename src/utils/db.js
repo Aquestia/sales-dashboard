@@ -48,9 +48,6 @@ export async function uploadMain({ filename, customers, salesOrders, production,
   const ordersWithFileId = salesOrders.map(o => ({ ...o, file_id: fileId }))
   await insertChunked('sales_open_orders', ordersWithFileId)
 
-  // Prune old files (keep last 2)
-  await pruneSalesFiles()
-
   await clearAndInsert('sales_production', production)
   await clearAndInsert('sales_allocation', allocation)
   await clearAndInsert('sales_purchase_orders', purchaseOrders)
@@ -154,7 +151,6 @@ export async function fetchSalesFiles() {
     .from('sales_files')
     .select('*')
     .order('uploaded_at', { ascending: false })
-    .limit(2)
   return data || []
 }
 

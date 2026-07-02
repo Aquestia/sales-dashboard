@@ -23,7 +23,7 @@ const STATUS_ORDER = [
 ]
 
 function shortStatus(s) {
-  return s.replace('בהרכבת הרכבת ', 'הרכבת ').replace('בהרכבת ', 'הרכבת ')
+  return s.replace('בהרכבת הרכבת ','הרכבת ').replace('בהרכבת ','הרכבת ')
 }
 
 function buildMonthData(orders, production, dr4, dr5) {
@@ -33,83 +33,77 @@ function buildMonthData(orders, production, dr4, dr5) {
     const mk = monthKey(o.confirmed_ship_date)
     if (!mk) return
     const status = classifyOrder(o, productionMap, dr4ByParent, dr5ByParent)
-    const cat = o.cat // Internal / External
+    const ie = o.cat === 'Internal' ? 'Internal' : 'External'
     if (!byMonth[mk]) byMonth[mk] = {}
-    if (!byMonth[mk][status]) byMonth[mk][status] = { Internal: { cnt: 0, amt: 0 }, External: { cnt: 0, amt: 0 } }
-    const ie = cat === 'Internal' ? 'Internal' : 'External'
+    if (!byMonth[mk][status]) byMonth[mk][status] = { Internal:{cnt:0,amt:0}, External:{cnt:0,amt:0} }
     byMonth[mk][status][ie].cnt += 1
     byMonth[mk][status][ie].amt += o.remaining_amount || 0
   })
   return byMonth
 }
 
-function StatusTable({ monthKey: mk, todayData, yesterdayData, color }) {
+function StatusTable({ monthKey: mk, aData, bData, aFile, bFile, color }) {
   const statuses = [...new Set([
-    ...Object.keys(todayData || {}),
-    ...Object.keys(yesterdayData || {})
-  ])].sort((a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b))
-
-  const colStyle = { padding: '5px 8px', fontSize: 12, borderBottom: '0.5px solid #e5e5e0', whiteSpace: 'nowrap', textAlign: 'left' }
-  const hStyle = { ...colStyle, color: '#888', fontSize: 11, fontWeight: 500, background: '#f8f8f6' }
-
-  const todayTotal = { Internal: { cnt: 0, amt: 0 }, External: { cnt: 0, amt: 0 } }
-  const yestTotal  = { Internal: { cnt: 0, amt: 0 }, External: { cnt: 0, amt: 0 } }
-  ;['Internal','External'].forEach(ie => {
-    Object.values(todayData || {}).forEach(s => { todayTotal[ie].cnt += s[ie]?.cnt||0; todayTotal[ie].amt += s[ie]?.amt||0 })
-    Object.values(yesterdayData || {}).forEach(s => { yestTotal[ie].cnt += s[ie]?.cnt||0; yestTotal[ie].amt += s[ie]?.amt||0 })
+    ...Object.keys(aData || {}),
+    ...Object.keys(bData || {})
+  ])].sort((a,b) => {
+    const ai = STATUS_ORDER.indexOf(a), bi = STATUS_ORDER.indexOf(b)
+    return (ai===-1?99:ai) - (bi===-1?99:bi)
   })
 
+  const cs = { padding:'5px 8px', fontSize:12, borderBottom:'0.5px solid #e5e5e0', whiteSpace:'nowrap', textAlign:'left' }
+  const hs = { ...cs, color:'#888', fontSize:11, fontWeight:500, background:'#f8f8f6' }
+
+  const totA = { I:{cnt:0,amt:0}, E:{cnt:0,amt:0} }
+  const totB = { I:{cnt:0,amt:0}, E:{cnt:0,amt:0} }
+  Object.values(aData||{}).forEach(s => { totA.I.cnt+=s.Internal?.cnt||0; totA.I.amt+=s.Internal?.amt||0; totA.E.cnt+=s.External?.cnt||0; totA.E.amt+=s.External?.amt||0 })
+  Object.values(bData||{}).forEach(s => { totB.I.cnt+=s.Internal?.cnt||0; totB.I.amt+=s.Internal?.amt||0; totB.E.cnt+=s.External?.cnt||0; totB.E.amt+=s.External?.amt||0 })
+
+  const fileALabel = aFile ? `${aFile.batch_date}` : '—'
+  const fileBLabel = bFile ? `${bFile.batch_date}` : '—'
+
   return (
-    <div style={{ border: '0.5px solid #e5e5e0', borderRadius: 10, overflow: 'hidden', flex: 1, minWidth: 0 }}>
-      {/* Month header */}
-      <div style={{ background: color, color: '#fff', padding: '10px 14px', fontWeight: 600, fontSize: 14 }}>
+    <div style={{ border:'0.5px solid #e5e5e0', borderRadius:10, overflow:'hidden', flex:1, minWidth:0 }}>
+      <div style={{ background:color, color:'#fff', padding:'10px 14px', fontWeight:600, fontSize:14 }}>
         {monthLabel(mk)}
       </div>
-
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+      <div style={{ overflowX:'auto' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
           <thead>
             <tr>
-              <th style={{ ...hStyle, textAlign: 'right' }}>סטטוס</th>
-              {/* Yesterday */}
-              <th colSpan={2} style={{ ...hStyle, textAlign: 'center', borderRight: '1px solid #ddd' }}>אתמול</th>
-              {/* Today */}
-              <th colSpan={2} style={{ ...hStyle, textAlign: 'center' }}>היום</th>
+              <th style={{ ...hs, textAlign:'right' }}>סטטוס</th>
+              <th colSpan={2} style={{ ...hs, textAlign:'center', borderRight:'1px solid #ddd' }}>{fileALabel}</th>
+              <th colSpan={2} style={{ ...hs, textAlign:'center' }}>{fileBLabel}</th>
             </tr>
             <tr>
-              <th style={{ ...hStyle, textAlign: 'right' }}></th>
-              <th style={{ ...hStyle, textAlign: 'center' }}>פנימי</th>
-              <th style={{ ...hStyle, textAlign: 'center', borderRight: '1px solid #ddd' }}>חיצוני</th>
-              <th style={{ ...hStyle, textAlign: 'center' }}>פנימי</th>
-              <th style={{ ...hStyle, textAlign: 'center' }}>חיצוני</th>
+              <th style={{ ...hs, textAlign:'right' }}></th>
+              <th style={hs}>פנימי</th>
+              <th style={{ ...hs, borderRight:'1px solid #ddd' }}>חיצוני</th>
+              <th style={hs}>פנימי</th>
+              <th style={hs}>חיצוני</th>
             </tr>
           </thead>
           <tbody>
-            {statuses.map((st, i) => {
-              const td = todayData?.[st]
-              const yd = yesterdayData?.[st]
+            {statuses.map((st,i) => {
+              const a = aData?.[st], b = bData?.[st]
               return (
-                <tr key={st} style={{ background: i % 2 === 0 ? '#fafaf8' : '#fff' }}>
-                  <td style={{ ...colStyle, textAlign: 'right', fontWeight: 500 }}>{shortStatus(st)}</td>
-                  {/* Yesterday Internal */}
-                  <td style={colStyle}>{yd?.Internal?.cnt || 0} · <span style={{ color: '#555' }}>${fmt(yd?.Internal?.amt||0)}</span></td>
-                  {/* Yesterday External */}
-                  <td style={{ ...colStyle, borderRight: '1px solid #ddd' }}>{yd?.External?.cnt || 0} · <span style={{ color: '#555' }}>${fmt(yd?.External?.amt||0)}</span></td>
-                  {/* Today Internal */}
-                  <td style={colStyle}>{td?.Internal?.cnt || 0} · <span style={{ color: '#555' }}>${fmt(td?.Internal?.amt||0)}</span></td>
-                  {/* Today External */}
-                  <td style={colStyle}>{td?.External?.cnt || 0} · <span style={{ color: '#555' }}>${fmt(td?.External?.amt||0)}</span></td>
+                <tr key={st} style={{ background: i%2===0?'#fafaf8':'#fff' }}>
+                  <td style={{ ...cs, textAlign:'right', fontWeight:500 }}>{shortStatus(st)}</td>
+                  <td style={cs}>{a?.Internal?.cnt||0} · <span style={{color:'#555'}}>${fmt(a?.Internal?.amt||0)}</span></td>
+                  <td style={{ ...cs, borderRight:'1px solid #ddd' }}>{a?.External?.cnt||0} · <span style={{color:'#555'}}>${fmt(a?.External?.amt||0)}</span></td>
+                  <td style={cs}>{b?.Internal?.cnt||0} · <span style={{color:'#555'}}>${fmt(b?.Internal?.amt||0)}</span></td>
+                  <td style={cs}>{b?.External?.cnt||0} · <span style={{color:'#555'}}>${fmt(b?.External?.amt||0)}</span></td>
                 </tr>
               )
             })}
           </tbody>
           <tfoot>
-            <tr style={{ fontWeight: 600, background: '#f0f4f9' }}>
-              <td style={{ ...colStyle, textAlign: 'right' }}>סה"כ</td>
-              <td style={colStyle}>{yestTotal.Internal.cnt} · ${fmt(yestTotal.Internal.amt)}</td>
-              <td style={{ ...colStyle, borderRight: '1px solid #ddd' }}>{yestTotal.External.cnt} · ${fmt(yestTotal.External.amt)}</td>
-              <td style={colStyle}>{todayTotal.Internal.cnt} · ${fmt(todayTotal.Internal.amt)}</td>
-              <td style={colStyle}>{todayTotal.External.cnt} · ${fmt(todayTotal.External.amt)}</td>
+            <tr style={{ fontWeight:600, background:'#f0f4f9' }}>
+              <td style={{ ...cs, textAlign:'right' }}>סה"כ</td>
+              <td style={cs}>{totA.I.cnt} · ${fmt(totA.I.amt)}</td>
+              <td style={{ ...cs, borderRight:'1px solid #ddd' }}>{totA.E.cnt} · ${fmt(totA.E.amt)}</td>
+              <td style={cs}>{totB.I.cnt} · ${fmt(totB.I.amt)}</td>
+              <td style={cs}>{totB.E.cnt} · ${fmt(totB.E.amt)}</td>
             </tr>
           </tfoot>
         </table>
@@ -119,76 +113,120 @@ function StatusTable({ monthKey: mk, todayData, yesterdayData, color }) {
 }
 
 export default function MonthlyStatusView({ production, dr4, dr5 }) {
-  const [files, setFiles] = useState([])
-  const [todayOrders, setTodayOrders] = useState([])
-  const [yesterdayOrders, setYesterdayOrders] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [allFiles, setAllFiles]       = useState([])
+  const [selected, setSelected]       = useState([]) // max 2 file ids
+  const [running, setRunning]         = useState(false)
+  const [activeFiles, setActiveFiles] = useState([]) // the 2 files being compared
+  const [ordersA, setOrdersA]         = useState([])
+  const [ordersB, setOrdersB]         = useState([])
+  const [loading, setLoading]         = useState(false)
 
   useEffect(() => {
-    async function load() {
-      const fs = await fetchSalesFiles()
-      setFiles(fs)
-      if (fs.length >= 1) {
-        const today = await fetchSalesOrdersByFileId(fs[0].id)
-        setTodayOrders(today)
-      }
-      if (fs.length >= 2) {
-        const yesterday = await fetchSalesOrdersByFileId(fs[1].id)
-        setYesterdayOrders(yesterday)
-      }
-      setLoading(false)
-    }
-    load()
+    fetchSalesFiles().then(files => {
+      setAllFiles(files)
+      // auto-select 2 most recent
+      if (files.length >= 2) setSelected([files[0].id, files[1].id])
+      else if (files.length === 1) setSelected([files[0].id])
+    })
   }, [])
 
-  const todayMonths   = useMemo(() => buildMonthData(todayOrders, production, dr4, dr5), [todayOrders, production, dr4, dr5])
-  const yesterdayMonths = useMemo(() => buildMonthData(yesterdayOrders, production, dr4, dr5), [yesterdayOrders, production, dr4, dr5])
+  function toggleSelect(id) {
+    setSelected(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id)
+      if (prev.length >= 2) return prev // max 2
+      return [...prev, id]
+    })
+  }
 
-  // Show current month + next 2 months
+  async function runComparison() {
+    if (selected.length !== 2) return
+    setLoading(true)
+    const [idA, idB] = selected
+    const [a, b] = await Promise.all([
+      fetchSalesOrdersByFileId(idA),
+      fetchSalesOrdersByFileId(idB)
+    ])
+    setOrdersA(a)
+    setOrdersB(b)
+    setActiveFiles([
+      allFiles.find(f => f.id === idA),
+      allFiles.find(f => f.id === idB)
+    ])
+    setLoading(false)
+    setRunning(true)
+  }
+
+  const monthDataA = useMemo(() => buildMonthData(ordersA, production, dr4, dr5), [ordersA, production, dr4, dr5])
+  const monthDataB = useMemo(() => buildMonthData(ordersB, production, dr4, dr5), [ordersB, production, dr4, dr5])
+
   const now = new Date()
   const displayMonths = [0, 1].map(offset => {
     const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
   })
-
-  const COLORS = ['#D97706', '#1D6FA5']
-
-  if (loading) return <div className="loading">טוען נתונים...</div>
+  const COLORS = ['#D97706','#1D6FA5']
 
   return (
     <div>
       <div className="page-heading">מצב הזמנות — השוואה יומית</div>
 
-      {files.length === 0 && (
-        <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-          אין קבצים שמורים. העלה קובץ ראשי כדי לראות נתונים.
-        </div>
-      )}
+      {/* File selector */}
+      <div className="section-box" style={{ marginBottom:'1.25rem' }}>
+        <div className="section-title">בחר שני קבצים להשוואה ({selected.length}/2 נבחרו)</div>
 
-      {files.length === 1 && (
-        <div style={{ fontSize: 13, color: 'var(--amber-dark)', marginBottom: 12, padding: '8px 12px', background: 'var(--amber-bg)', borderRadius: 8 }}>
-          יש קובץ אחד בלבד — העמוד "אתמול" יהיה ריק. העלה קובץ נוסף מחר לראות השוואה.
-        </div>
-      )}
+        {allFiles.length === 0 && (
+          <div style={{ fontSize:13, color:'var(--text-muted)' }}>אין קבצים שמורים. העלה קובץ ראשי תחילה.</div>
+        )}
 
-      {files.length > 0 && (
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
-          היום: {files[0]?.batch_date} ({files[0]?.filename})
-          {files[1] && ` · אתמול: ${files[1]?.batch_date} (${files[1]?.filename})`}
+        <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:12 }}>
+          {allFiles.map((f, i) => {
+            const isSel = selected.includes(f.id)
+            const isDisabled = !isSel && selected.length >= 2
+            return (
+              <button key={f.id} onClick={() => !isDisabled && toggleSelect(f.id)}
+                style={{
+                  padding:'8px 14px', borderRadius:'var(--radius)', fontSize:12,
+                  border:'0.5px solid ' + (isSel ? 'var(--blue-dark)' : 'var(--border-card)'),
+                  background: isSel ? 'var(--blue-bg)' : 'var(--bg-row)',
+                  color: isSel ? 'var(--blue-dark)' : isDisabled ? 'var(--text-hint)' : 'var(--text-main)',
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  opacity: isDisabled ? 0.5 : 1,
+                  display:'flex', flexDirection:'column', alignItems:'flex-start', gap:2
+                }}>
+                <span style={{ fontWeight:600 }}>{isSel ? `✓ ` : ''}{f.batch_date}</span>
+                <span style={{ color:'var(--text-muted)', fontSize:11 }}>{f.filename} · {new Date(f.uploaded_at).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}</span>
+              </button>
+            )
+          })}
         </div>
-      )}
 
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        {displayMonths.map((mk, i) => (
-          <StatusTable
-            key={mk}
-            monthKey={mk}
-            todayData={todayMonths[mk]}
-            yesterdayData={yesterdayMonths[mk]}
-            color={COLORS[i]}
-          />
-        ))}
+        <button onClick={runComparison} disabled={selected.length !== 2 || loading}
+          style={{
+            padding:'9px 24px', borderRadius:'var(--radius)', fontSize:14, fontWeight:600,
+            background: selected.length === 2 ? 'var(--blue-dark)' : '#ccc',
+            color:'#fff', border:'none',
+            cursor: selected.length === 2 ? 'pointer' : 'not-allowed'
+          }}>
+          {loading ? 'טוען...' : '▶ הפעל השוואה'}
+        </button>
       </div>
+
+      {/* Comparison tables */}
+      {running && (
+        <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
+          {displayMonths.map((mk, i) => (
+            <StatusTable
+              key={mk}
+              monthKey={mk}
+              aData={monthDataA[mk]}
+              bData={monthDataB[mk]}
+              aFile={activeFiles[0]}
+              bFile={activeFiles[1]}
+              color={COLORS[i]}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
