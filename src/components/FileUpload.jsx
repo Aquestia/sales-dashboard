@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { uploadSnapshot, uploadMain, fetchSalesFiles } from '../utils/db'
+import { uploadSnapshot, uploadMain, fetchSalesFiles, deleteSalesFile, updateSalesFileLabel } from '../utils/db'
 
 const FILE_TYPES = [
   { key: 'main',     label: 'קובץ ראשי (check_data)',  hint: 'לשוניות: Customers / Sales orders / Production / Calculated Allocation / Open Purchase Orders / DR4 / DR5 / Invoices / BO' },
@@ -11,11 +11,29 @@ export default function FileUpload() {
   const [messages, setMessages] = useState([])
   const [uploading, setUploading] = useState(false)
   const [savedFiles, setSavedFiles] = useState([])
+  const [editingFile, setEditingFile] = useState(null) // { id, filename, batch_date }
+  const [deleting, setDeleting] = useState(null)
   const inputRef = useRef()
 
   useEffect(() => {
     fetchSalesFiles().then(setSavedFiles)
   }, [])
+
+  async function handleDelete(f) {
+    if (!window.confirm(`למחוק את הקובץ "${f.filename}" (${f.batch_date})?\nכל שורות ההזמנה המקושרות ימחקו.`)) return
+    setDeleting(f.id)
+    await deleteSalesFile(f.id)
+    const updated = await fetchSalesFiles()
+    setSavedFiles(updated)
+    setDeleting(null)
+  }
+
+  async function handleUpdate(f) {
+    await updateSalesFileLabel(f.id, editingFile.filename, editingFile.batch_date)
+    const updated = await fetchSalesFiles()
+    setSavedFiles(updated)
+    setEditingFile(null)
+  }
 
   function addMsg(type, msg) {
     setMessages(prev => [...prev, { type, msg, time: new Date().toLocaleTimeString('he-IL') }])
@@ -115,18 +133,53 @@ export default function FileUpload() {
         <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-card)', borderRadius: 10, padding: '1rem 1.2rem', marginTop: '1rem' }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 10 }}>קבצים שמורים (עד 2 גרסאות):</div>
           {savedFiles.map((f, i) => (
-            <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '8px 10px', borderRadius: 8, marginBottom: 6,
-              background: i === 0 ? 'var(--blue-bg)' : 'var(--bg-row)',
-              border: '0.5px solid ' + (i === 0 ? 'var(--border-blue)' : 'var(--border-card)') }}>
-              <div>
-                <span style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: i === 0 ? 'var(--blue-dark)' : 'var(--text-main)' }}>
-                  {i === 0 ? '📅 היום — ' : '📅 אתמול — '}{f.filename}
-                </span>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                {f.batch_date} · {new Date(f.uploaded_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
-              </div>
+            <div key={f.id} style={{ marginBottom: 8 }}>
+              {editingFile?.id === f.id ? (
+                /* Edit mode */
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 10px',
+                  background: 'var(--blue-bg)', border: '0.5px solid var(--border-accent)', borderRadius: 8 }}>
+                  <input value={editingFile.filename} onChange={e => setEditingFile(p => ({...p, filename: e.target.value}))}
+                    style={{ flex: 1, height: 30, fontSize: 12 }} placeholder="שם קובץ" />
+                  <input value={editingFile.batch_date} onChange={e => setEditingFile(p => ({...p, batch_date: e.target.value}))}
+                    style={{ width: 120, height: 30, fontSize: 12 }} type="date" />
+                  <button onClick={() => handleUpdate(f)}
+                    style={{ padding: '4px 12px', background: 'var(--blue-dark)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                    💾 שמור
+                  </button>
+                  <button onClick={() => setEditingFile(null)}
+                    style={{ padding: '4px 10px', background: 'none', border: '0.5px solid var(--border-card)', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                    ביטול
+                  </button>
+                </div>
+              ) : (
+                /* View mode */
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 10px', borderRadius: 8, gap: 8,
+                  background: i === 0 ? 'var(--blue-bg)' : 'var(--bg-row)',
+                  border: '0.5px solid ' + (i === 0 ? 'var(--border-accent)' : 'var(--border-card)') }}>
+                  <div>
+                    <span style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: i === 0 ? 'var(--blue-dark)' : 'var(--text-main)' }}>
+                      {i === 0 ? '📅 היום — ' : '📅 אתמול — '}{f.filename}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 8 }}>
+                      {f.batch_date} · {new Date(f.uploaded_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => setEditingFile({ id: f.id, filename: f.filename, batch_date: f.batch_date })}
+                      style={{ padding: '4px 10px', background: 'none', border: '0.5px solid var(--border-card)',
+                        borderRadius: 6, cursor: 'pointer', fontSize: 12, color: 'var(--text-sub)' }}>
+                      ✏️ עדכן
+                    </button>
+                    <button onClick={() => handleDelete(f)} disabled={deleting === f.id}
+                      style={{ padding: '4px 10px', background: deleting === f.id ? '#eee' : '#fbe9e7',
+                        border: '0.5px solid #f09595', borderRadius: 6, cursor: 'pointer',
+                        fontSize: 12, color: 'var(--red-dark)', fontWeight: 500 }}>
+                      {deleting === f.id ? '...' : '🗑️ מחק'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

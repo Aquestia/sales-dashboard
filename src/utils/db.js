@@ -203,3 +203,15 @@ export async function saveProcurementNote(itemNumber, fields) {
     await supabase.from('procurement_notes').insert(payload)
   }
 }
+
+export async function deleteSalesFile(fileId) {
+  await supabase.from('sales_open_orders').delete().eq('file_id', fileId)
+  await supabase.from('sales_files').delete().eq('id', fileId)
+}
+
+export async function updateSalesFileLabel(fileId, filename, batchDate) {
+  const { error } = await supabase.from('sales_files')
+    .update({ filename, batch_date: batchDate })
+    .eq('id', fileId)
+  if (error) throw new Error(error.message)
+}
