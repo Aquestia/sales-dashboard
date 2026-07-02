@@ -30,9 +30,11 @@ function buildMonthData(orders, production, dr4, dr5) {
   return byMonth
 }
 
-function DiffCell({ aAmt, bAmt, style={} }) {
+function ChangeCell({ aAmt, bAmt, style={} }) {
   const diff = bAmt - aAmt
-  if (diff === 0 || (!aAmt && !bAmt)) return <td style={style}><span style={{color:'#bbb'}}>—</span></td>
+  if (Math.abs(diff) < 0.01) {
+    return <td style={style}><span style={{color:'#999', fontSize:13}}>↔</span></td>
+  }
   const up = diff > 0
   return (
     <td style={style}>
@@ -62,37 +64,31 @@ function StatusTable({ mk, aData, bData, aFile, bFile, color }) {
 
   return (
     <div style={{ border:'0.5px solid #ddd', borderRadius:10, overflow:'hidden', marginBottom:16 }}>
-      {/* Month title */}
       <div style={{ background:color, color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:15, textAlign:'center' }}>
         {monthLabel(mk)}
       </div>
-
       <div style={{ overflowX:'auto' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-          <colgroup>
-            <col style={{width:130}} />
-            <col /><col /><col /><col style={{borderRight:'2px solid #ccc'}} /><col style={{borderRight:'2px solid #999'}} />
-            <col /><col /><col /><col style={{borderRight:'2px solid #ccc'}} /><col style={{borderRight:'2px solid #999'}} />
-            <col />
-          </colgroup>
           <thead>
             <tr>
-              <th rowSpan={2} style={{ ...HS, textAlign:'right', borderRight:'0.5px solid #ddd', borderBottom:'1px solid #ddd' }}>סטטוס</th>
-              <th colSpan={5} style={{ ...HS, background:'#eaf0f8', borderBottom:'1px solid #ddd', borderRight:'2px solid #999' }}>{aFile?.batch_date||'—'}</th>
-              <th colSpan={5} style={{ ...HS, background:'#f5f0e8', borderBottom:'1px solid #ddd', borderRight:'2px solid #999' }}>{bFile?.batch_date||'—'}</th>
-              <th rowSpan={2} style={{ ...HS, background:'#eef5ea', borderBottom:'1px solid #ddd' }}>שינוי<br/>כולל</th>
+              <th rowSpan={2} style={{ ...HS, textAlign:'right', borderRight:'1px solid #ccc' }}>סטטוס</th>
+              <th colSpan={4} style={{ ...HS, background:'#eaf0f8', textAlign:'center', borderRight:'2px solid #bbb' }}>
+                {aFile?.batch_date||'—'}
+              </th>
+              <th colSpan={4} style={{ ...HS, background:'#f5f0e8', textAlign:'center', borderRight:'2px solid #bbb' }}>
+                {bFile?.batch_date||'—'}
+              </th>
+              <th rowSpan={2} style={{ ...HS, background:'#eef5ea', textAlign:'center' }}>שינוי</th>
             </tr>
             <tr>
               <th style={{ ...HS, background:'#eaf0f8' }}>פנימי $</th>
               <th style={{ ...HS, background:'#eaf0f8' }}>חיצוני $</th>
-              <th style={{ ...HS, background:'#dce8f5' }}>סכום כולל</th>
-              <th style={{ ...HS, background:'#eaf0f8' }}>שורות</th>
-              <th style={{ ...HS, background:'#dce8f5', borderRight:'2px solid #999' }}>שינוי</th>
+              <th style={{ ...HS, background:'#dce8f5', fontWeight:700 }}>סכום כולל</th>
+              <th style={{ ...HS, background:'#eaf0f8', borderRight:'2px solid #bbb' }}>שורות</th>
               <th style={{ ...HS, background:'#f5f0e8' }}>פנימי $</th>
               <th style={{ ...HS, background:'#f5f0e8' }}>חיצוני $</th>
-              <th style={{ ...HS, background:'#ede5d8' }}>סכום כולל</th>
-              <th style={{ ...HS, background:'#f5f0e8' }}>שורות</th>
-              <th style={{ ...HS, background:'#ede5d8', borderRight:'2px solid #999' }}>שינוי</th>
+              <th style={{ ...HS, background:'#ede5d8', fontWeight:700 }}>סכום כולל</th>
+              <th style={{ ...HS, background:'#f5f0e8', borderRight:'2px solid #bbb' }}>שורות</th>
             </tr>
           </thead>
           <tbody>
@@ -105,36 +101,32 @@ function StatusTable({ mk, aData, bData, aFile, bFile, color }) {
               const bCnt = (b.I?.cnt||0)+(b.E?.cnt||0)
               return (
                 <tr key={st} style={{ background: i%2===0?'#fafaf8':'#fff' }}>
-                  <td style={{ ...CS, textAlign:'right', fontWeight:500, borderRight:'0.5px solid #ddd' }}>{shortStatus(st)}</td>
+                  <td style={{ ...CS, textAlign:'right', fontWeight:500, borderRight:'1px solid #ccc' }}>{shortStatus(st)}</td>
                   <td style={CS}>{a.I?.amt ? `$${fmt(a.I.amt)}` : '—'}</td>
                   <td style={CS}>{a.E?.amt ? `$${fmt(a.E.amt)}` : '—'}</td>
                   <td style={{ ...CS, fontWeight:600, background:'#f0f5fb' }}>{aTot ? `$${fmt(aTot)}` : '—'}</td>
-                  <td style={{ ...CS, color:'#777' }}>{aCnt||'—'}</td>
-                  <DiffCell aAmt={0} bAmt={aTot} style={{ ...CS, background:'#f0f5fb', borderRight:'2px solid #999' }} />
+                  <td style={{ ...CS, color:'#777', borderRight:'2px solid #bbb' }}>{aCnt||'—'}</td>
                   <td style={CS}>{b.I?.amt ? `$${fmt(b.I.amt)}` : '—'}</td>
                   <td style={CS}>{b.E?.amt ? `$${fmt(b.E.amt)}` : '—'}</td>
                   <td style={{ ...CS, fontWeight:600, background:'#f8f2e8' }}>{bTot ? `$${fmt(bTot)}` : '—'}</td>
-                  <td style={{ ...CS, color:'#777' }}>{bCnt||'—'}</td>
-                  <DiffCell aAmt={0} bAmt={bTot} style={{ ...CS, background:'#f8f2e8', borderRight:'2px solid #999' }} />
-                  <DiffCell aAmt={aTot} bAmt={bTot} style={{ ...CS, background:'#f0f8ec' }} />
+                  <td style={{ ...CS, color:'#777', borderRight:'2px solid #bbb' }}>{bCnt||'—'}</td>
+                  <ChangeCell aAmt={aTot} bAmt={bTot} style={{ ...CS, background:'#f0f8ec' }} />
                 </tr>
               )
             })}
           </tbody>
           <tfoot>
             <tr style={{ fontWeight:700, background:'#e8edf5', fontSize:13 }}>
-              <td style={{ ...CS, textAlign:'right', borderRight:'0.5px solid #ddd' }}>סה"כ</td>
+              <td style={{ ...CS, textAlign:'right', borderRight:'1px solid #ccc' }}>סה"כ</td>
               <td style={CS}>${fmt(tA.iA)}</td>
               <td style={CS}>${fmt(tA.eA)}</td>
-              <td style={{ ...CS, background:'#d8e4f0' }}>${fmt(tA.tot)}</td>
-              <td style={CS}>{tA.cnt}</td>
-              <td style={{ ...CS, borderRight:'2px solid #999' }}></td>
+              <td style={{ ...CS, background:'#d8e4f0', fontWeight:700 }}>${fmt(tA.tot)}</td>
+              <td style={{ ...CS, borderRight:'2px solid #bbb' }}>{tA.cnt}</td>
               <td style={CS}>${fmt(tB.iA)}</td>
               <td style={CS}>${fmt(tB.eA)}</td>
-              <td style={{ ...CS, background:'#eddfc8' }}>${fmt(tB.tot)}</td>
-              <td style={CS}>{tB.cnt}</td>
-              <td style={{ ...CS, borderRight:'2px solid #999' }}></td>
-              <DiffCell aAmt={tA.tot} bAmt={tB.tot} style={{ ...CS, background:'#dff0d8', fontSize:14 }} />
+              <td style={{ ...CS, background:'#eddfc8', fontWeight:700 }}>${fmt(tB.tot)}</td>
+              <td style={{ ...CS, borderRight:'2px solid #bbb' }}>{tB.cnt}</td>
+              <ChangeCell aAmt={tA.tot} bAmt={tB.tot} style={{ ...CS, background:'#dff0d8', fontSize:14 }} />
             </tr>
           </tfoot>
         </table>
@@ -192,13 +184,11 @@ export default function MonthlyStatusView({ production, dr4, dr5 }) {
   return (
     <div>
       <div className="page-heading">מצב הזמנות — השוואה יומית</div>
-
-      {/* File selector */}
       <div className="section-box" style={{ marginBottom:'1.25rem' }}>
         <div className="section-title">בחר שני קבצים להשוואה ({selected.length}/2 נבחרו)</div>
-        {allFiles.length === 0 && <div style={{ fontSize:13, color:'var(--text-muted)' }}>אין קבצים שמורים. העלה קובץ ראשי תחילה.</div>}
+        {allFiles.length === 0 && <div style={{ fontSize:13, color:'var(--text-muted)' }}>אין קבצים שמורים.</div>}
         <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:12 }}>
-          {allFiles.map((f, i) => {
+          {allFiles.map((f) => {
             const isSel = selected.includes(f.id)
             const isDisabled = !isSel && selected.length >= 2
             return (
@@ -223,7 +213,6 @@ export default function MonthlyStatusView({ production, dr4, dr5 }) {
         </button>
       </div>
 
-      {/* Tables */}
       {running && displayMonths.map((mk,i) => (
         <StatusTable key={mk} mk={mk}
           aData={monthDataA[mk]} bData={monthDataB[mk]}
