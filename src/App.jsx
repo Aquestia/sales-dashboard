@@ -55,7 +55,7 @@ export default function App() {
       <main className="main-content">
         {loading && <div className="loading">טוען נתונים...</div>}
         {page === 'sales'      && loaded && <SalesDashboard orders={data.salesOrders} />}
-        {page === 'bo'         && loaded && <BOView bo={data.bo} />}
+        {page === 'bo'         && loaded && <BOView bo={data.bo} allocation={data.allocation} purchaseOrders={data.purchaseOrders} />}
         {page === 'invoices'   && loaded && <InvoicesView invoices={data.invoicesDetail} />}
         {page === 'production' && loaded && <ProductionView production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'customer'   && loaded && <CustomerCard customers={data.customers} salesOrders={data.salesOrders} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}

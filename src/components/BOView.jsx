@@ -20,7 +20,7 @@ const DETAIL_COLS = [
   ['open_sales_amount','שווי פתוח'], ['past_due','פיגור $'], ['sales_status','סטטוס']
 ]
 
-export default function BOView({ bo }) {
+export default function BOView({ bo, allocation = [], purchaseOrders = [] }) {
   const [selectedMonth, setSelectedMonth] = useState(null)
 
   const totalBO    = bo.reduce((s, r) => s + (r.back_orders_amount || 0), 0)
@@ -150,7 +150,7 @@ export default function BOView({ bo }) {
 
             {/* Customer accordion */}
             {custGroups.map((grp, gi) => (
-              <CustomerGroup key={grp.customer} grp={grp} cols={DETAIL_COLS} />
+              <CustomerGroup key={grp.customer} grp={grp} cols={DETAIL_COLS} allocation={allocation} purchaseOrders={purchaseOrders} />
             ))}
           </div>
         )
@@ -160,8 +160,31 @@ export default function BOView({ bo }) {
   )
 }
 
-function CustomerGroup({ grp, cols }) {
+function CustomerGroup({ grp, cols, allocation, purchaseOrders }) {
   const [open, setOpen] = useState(false)
+  const [openShortage, setOpenShortage] = useState(null) // doc key
+
+  function getShortages(doc) {
+    return allocation.filter(a =>
+      a.number === doc &&
+      a.reference === 'Sales order' &&
+      a.shortage_exist === 'Yes' &&
+      a.missing_qty > 0
+    )
+  }
+
+  function bestPO(itemNumber) {
+    const candidates = purchaseOrders.filter(p =>
+      p.item_number === String(itemNumber) &&
+      p.deliver_remainder > 0 &&
+      p.document_status !== 'Invoice'
+    )
+    return candidates.sort((a, b) => {
+      const da = a.confirmed_receipt_date || a.requested_receipt_date || '9999'
+      const db = b.confirmed_receipt_date || b.requested_receipt_date || '9999'
+      return da.localeCompare(db)
+    })[0] || null
+  }
 
   return (
     <div style={{ borderBottom: '0.5px solid var(--border-tbl)' }}>
@@ -187,25 +210,93 @@ function CustomerGroup({ grp, cols }) {
           <table style={{ fontSize: 12 }}>
             <thead>
               <tr>
+                <th style={{ padding: '6px 8px', color: 'var(--text-muted)', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>חוסר</th>
                 {cols.filter(([k]) => k !== 'customer').map(([k, l]) => (
                   <th key={k} style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>{l}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {grp.rows.map((r, i) => (
-                <tr key={i} style={{ background: i % 2 === 0 ? 'var(--bg-row)' : 'var(--bg-card)' }}>
-                  {cols.filter(([k]) => k !== 'customer').map(([k]) => (
-                    <td key={k} style={{ padding: '6px 8px', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>
-                      {k === 'back_orders_amount'
-                        ? <span style={{ fontWeight: 500, color: 'var(--red-dark)' }}>${fmt(r[k] || 0)}</span>
-                        : k === 'open_sales_amount' || k === 'past_due'
-                        ? '$' + fmt(r[k] || 0)
-                        : (r[k] ?? '')}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              {grp.rows.map((r, i) => {
+                const shortages = getShortages(r.doc)
+                const hasShortage = shortages.length > 0
+                const shortageKey = `${r.doc}-${r.line}`
+                const isOpen = openShortage === shortageKey
+
+                return (
+                  <>
+                    <tr key={i} style={{ background: i % 2 === 0 ? 'var(--bg-row)' : 'var(--bg-card)' }}>
+                      <td style={{ padding: '6px 8px', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                        {hasShortage && (
+                          <button onClick={() => setOpenShortage(isOpen ? null : shortageKey)}
+                            title="לחץ לפירוט חוסרים"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, padding: 0 }}>
+                            🚩
+                          </button>
+                        )}
+                      </td>
+                      {cols.filter(([k]) => k !== 'customer').map(([k]) => (
+                        <td key={k} style={{ padding: '6px 8px', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>
+                          {k === 'back_orders_amount'
+                            ? <span style={{ fontWeight: 500, color: 'var(--red-dark)' }}>${fmt(r[k] || 0)}</span>
+                            : k === 'open_sales_amount' || k === 'past_due'
+                            ? '$' + fmt(r[k] || 0)
+                            : (r[k] ?? '')}
+                        </td>
+                      ))}
+                    </tr>
+                    {/* Shortage detail */}
+                    {isOpen && (
+                      <tr key={shortageKey + '-shortage'}>
+                        <td colSpan={cols.length} style={{ padding: '8px 12px', background: '#fef9f0', borderBottom: '0.5px solid var(--border-tbl)' }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--amber-dark)', marginBottom: 8 }}>
+                            🚩 מק"טים חסרים — הזמנה {r.doc}
+                          </div>
+                          <div style={{ overflowX: 'auto' }}>
+                            <table style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr>
+                                  {['מק"ט','שם פריט','סוג חוסר','כמות חסרה','תאריך נדרש','הזמנת רכש','ספק','תאריך אספקה','סטטוס'].map(h => (
+                                    <th key={h} style={{ textAlign: 'right', padding: '4px 8px', color: 'var(--text-muted)', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {shortages.map((s, si) => {
+                                  const po = bestPO(s.item_number)
+                                  const eta = po ? (po.confirmed_receipt_date || po.requested_receipt_date || '') : ''
+                                  const late = s.requested_delivery_date && eta && eta > s.requested_delivery_date
+                                  const hasPO = !!po
+                                  return (
+                                    <tr key={si} style={{ background: hasPO ? '#eaf3de' : '#fbe9e7' }}>
+                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{s.item_number}</td>
+                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{s.product_name}</td>
+                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{s.default_order_type === 'Purchase order' ? 'רכש' : 'ייצור'}</td>
+                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap', fontWeight: 600 }}>{Math.round(s.missing_qty)}</td>
+                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{s.requested_delivery_date || '—'}</td>
+                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{po?.purchase_order || '—'}</td>
+                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{po?.vendor_name || '—'}</td>
+                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{eta || '—'}</td>
+                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>
+                                        {hasPO
+                                          ? (late
+                                            ? <span style={{ color: 'var(--red-dark)', fontWeight: 600 }}>איחור צפוי</span>
+                                            : <span style={{ color: 'var(--green-dark)' }}>בזמן</span>)
+                                          : <span style={{ color: 'var(--red-dark)', fontWeight: 600 }}>אין הזמנת רכש</span>
+                                        }
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                )
+              })}
             </tbody>
           </table>
         </div>
