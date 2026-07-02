@@ -70,7 +70,6 @@ table { border-collapse: collapse; width: 100%; }
   top: 0;
   height: 100vh;
   overflow-y: auto;
-  order: 2;
 }
 
 .main-content {
@@ -78,7 +77,6 @@ table { border-collapse: collapse; width: 100%; }
   min-width: 0;
   padding: 1.25rem 1.5rem;
   overflow-x: hidden;
-  order: 1;
 }
 
 /* ── Sidebar elements ── */
