@@ -126,42 +126,88 @@ export default function BOView({ bo }) {
         </svg>
       </div>
 
-      {/* Detail table */}
-      {selectedMonth && detailRows.length > 0 && (
-        <div className="section-box">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div className="section-title" style={{ margin: 0 }}>
-              {monthLabel(selectedMonth)} — {detailRows.length} שורות · ${fmt(detailRows.reduce((s,r)=>s+(r.back_orders_amount||0),0))}
+      {/* Detail table - grouped by customer */}
+      {selectedMonth && detailRows.length > 0 && (() => {
+        // Group by customer
+        const byCustomer = {}
+        detailRows.forEach(r => {
+          const k = r.customer || '—'
+          if (!byCustomer[k]) byCustomer[k] = { customer: k, amount: 0, rows: [] }
+          byCustomer[k].amount += r.back_orders_amount || 0
+          byCustomer[k].rows.push(r)
+        })
+        const custGroups = Object.values(byCustomer).sort((a, b) => b.amount - a.amount)
+
+        return (
+          <div className="section-box">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div className="section-title" style={{ margin: 0 }}>
+                {monthLabel(selectedMonth)} — {detailRows.length} שורות · ${fmt(detailRows.reduce((s,r)=>s+(r.back_orders_amount||0),0))}
+              </div>
+              <button onClick={() => setSelectedMonth(null)}
+                style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>✕ סגור</button>
             </div>
-            <button onClick={() => setSelectedMonth(null)}
-              style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>✕ סגור</button>
+
+            {/* Customer accordion */}
+            {custGroups.map((grp, gi) => (
+              <CustomerGroup key={grp.customer} grp={grp} cols={DETAIL_COLS} />
+            ))}
           </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ fontSize: 12 }}>
-              <thead>
-                <tr>
-                  {DETAIL_COLS.map(([k, l]) => (
-                    <th key={k} style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>{l}</th>
+        )
+      })()}
+
+    </div>
+  )
+}
+
+function CustomerGroup({ grp, cols }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div style={{ borderBottom: '0.5px solid var(--border-tbl)' }}>
+      {/* Customer summary row */}
+      <button onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 12px', background: open ? 'var(--blue-bg)' : 'var(--bg-row)',
+          border: 'none', cursor: 'pointer', textAlign: 'right', gap: 12
+        }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: open ? 'var(--blue-dark)' : 'var(--text-main)', flex: 1 }}>
+          {open ? '▾' : '▸'} {grp.customer}
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 16 }}>{grp.rows.length} שורות</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--red-dark)', minWidth: 90, textAlign: 'left' }}>
+          ${fmt(grp.amount)}
+        </span>
+      </button>
+
+      {/* Expanded order rows */}
+      {open && (
+        <div style={{ overflowX: 'auto', background: 'var(--bg-card)', padding: '0 0 8px 0' }}>
+          <table style={{ fontSize: 12 }}>
+            <thead>
+              <tr>
+                {cols.filter(([k]) => k !== 'customer').map(([k, l]) => (
+                  <th key={k} style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>{l}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {grp.rows.map((r, i) => (
+                <tr key={i} style={{ background: i % 2 === 0 ? 'var(--bg-row)' : 'var(--bg-card)' }}>
+                  {cols.filter(([k]) => k !== 'customer').map(([k]) => (
+                    <td key={k} style={{ padding: '6px 8px', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>
+                      {k === 'back_orders_amount'
+                        ? <span style={{ fontWeight: 500, color: 'var(--red-dark)' }}>${fmt(r[k] || 0)}</span>
+                        : k === 'open_sales_amount' || k === 'past_due'
+                        ? '$' + fmt(r[k] || 0)
+                        : (r[k] ?? '')}
+                    </td>
                   ))}
                 </tr>
-              </thead>
-              <tbody>
-                {detailRows.map((r, i) => (
-                  <tr key={i} style={{ background: i % 2 === 0 ? 'var(--bg-row)' : 'var(--bg-card)' }}>
-                    {DETAIL_COLS.map(([k]) => (
-                      <td key={k} style={{ padding: '6px 8px', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>
-                        {k === 'back_orders_amount'
-                          ? <span style={{ fontWeight: 500, color: 'var(--red-dark)' }}>${fmt(r[k] || 0)}</span>
-                          : k === 'open_sales_amount' || k === 'past_due'
-                          ? '$' + fmt(r[k] || 0)
-                          : (r[k] ?? '')}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
