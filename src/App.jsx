@@ -17,7 +17,12 @@ import {
 import './App.css'
 
 export default function App() {
-  const [page, setPage] = useState('sales')
+  const [page, setPage] = useState(() => localStorage.getItem('sales_active_page') || 'sales')
+
+  function handleNav(key) {
+    localStorage.setItem('sales_active_page', key)
+    setPage(key)
+  }
   const [data, setData] = useState({
     customers: [], salesOrders: [], production: [],
     allocation: [], purchaseOrders: [], dr4: [], dr5: [],
@@ -52,7 +57,7 @@ export default function App() {
 
   return (
     <div className="layout" dir="rtl">
-      <Sidebar page={page} onNav={setPage} />
+      <Sidebar page={page} onNav={handleNav} />
       <main className="main-content">
         {loading && <div className="loading">טוען נתונים...</div>}
         {page === 'monthly'    && loaded && <MonthlyStatusView production={data.production} dr4={data.dr4} dr5={data.dr5} />}
