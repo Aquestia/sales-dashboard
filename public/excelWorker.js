@@ -86,6 +86,7 @@ self.onmessage = function (e) {
       postMessage({ type: 'done', fileType: 'snapshot', plan, niso, invoices })
 
     } else if (fileType === 'openorders') {
+      // קובץ מכירות.xlsx — גיליון Sheet1
       const sheetName = sheets.includes('Sheet1') ? 'Sheet1' : sheets[0]
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' })
       postMessage({ type: 'progress', msg: `עיבוד ${rows.length} שורות הזמנות פתוחות...` })
@@ -111,7 +112,9 @@ self.onmessage = function (e) {
       postMessage({ type: 'done', fileType: 'openorders', data })
 
     } else if (fileType === 'customers_production') {
+      // קובץ check_data.xlsx — לשוניות: Customers, Sales orders, Production, Calculated Allocation, Open Purchase Orders
       const custSheet  = wb.Sheets['Customers']
+      const soSheet    = wb.Sheets['Sales orders']
       const prodSheet  = wb.Sheets['Production']
       const allocSheet = wb.Sheets['Calculated Allocation']
       const poSheet    = wb.Sheets['Open Purchase Orders']
@@ -129,7 +132,7 @@ self.onmessage = function (e) {
       postMessage({ type: 'progress', msg: `עיבוד ${custRows.length} לקוחות...` })
       const customers = custRows.map(r => ({
         customer_account: String(r['Customer account'] || ''),
-        name: String(r['Name'] || r['Account name'] || ''),
+        name: String(r['Name'] || ''),
         search_name: String(r['Search name'] || ''),
         phone: String(r['Phone'] || ''),
         email: String(r['Email address'] || ''),
@@ -140,6 +143,33 @@ self.onmessage = function (e) {
         account_number: String(r['Account number'] || ''),
         cat: isInternal(r['Customer account']) ? 'Internal' : 'External'
       })).filter(r => r.customer_account)
+
+      // Sales orders — כולל עמודת Production לקישור לפק"ע
+      let salesOrders = []
+      if (soSheet) {
+        const soRows = XLSX.utils.sheet_to_json(soSheet, { defval: '' })
+        postMessage({ type: 'progress', msg: `עיבוד ${soRows.length} שורות הזמנות מכירה...` })
+        salesOrders = soRows.map(r => ({
+          sales_order: String(r['Sales order'] || ''),
+          line_number: safeNum(r['Line number']),
+          customer_account: String(r['Customer account'] || ''),
+          customer_name: String(r['Customer name'] || ''),
+          sale_type_code: String(r['Sale type code'] || ''),
+          item_number: String(r['Item number'] || ''),
+          item_group: String(r['Item group'] || ''),
+          production_number: String(r['Production'] || ''),  // קישור לפק"ע
+          status: String(r['Status'] || ''),
+          mode_of_delivery: String(r['Mode of delivery'] || ''),
+          pool: String(r['Pool'] || ''),
+          family: String(r['Family'] || ''),
+          confirmed_ship_date: safeDate(r['Confirmed ship date']),
+          remaining_amount: safeNum(r['Remainig amount main currency']),
+          gm_pct: safeNum(r['GM %']),
+          gm_amount: safeNum(r['GM  Main Currency']),
+          planning_priority: parseInt(r['Planning priority']) || 0,
+          cat: isInternal(r['Customer account']) ? 'Internal' : 'External'
+        })).filter(r => r.sales_order)
+      }
 
       postMessage({ type: 'progress', msg: `עיבוד ${prodRows.length} פק"עות...` })
       const production = prodRows.map(r => ({
@@ -157,8 +187,8 @@ self.onmessage = function (e) {
 
       postMessage({ type: 'progress', msg: `עיבוד ${allocRows.length} שורות Calc Allocation...` })
       const allocation = allocRows.map(r => {
-        const req   = safeNum(r['Requested quantity'])
-        const alloc = safeNum(r['Quantity allocated'])
+        const req    = safeNum(r['Requested quantity'])
+        const alloc  = safeNum(r['Quantity allocated'])
         const missing = Math.max(0, req - alloc)
         return {
           number: String(r['Number'] || ''),
@@ -185,7 +215,7 @@ self.onmessage = function (e) {
         document_status: String(r['Document status'] || '')
       })).filter(r => r.deliver_remainder > 0 && r.item_number)
 
-      postMessage({ type: 'done', fileType: 'customers_production', customers, production, allocation, purchaseOrders })
+      postMessage({ type: 'done', fileType: 'customers_production', customers, salesOrders, production, allocation, purchaseOrders })
     }
 
   } catch (err) {

@@ -2,9 +2,9 @@ import { useState, useRef } from 'react'
 import { uploadSnapshot, uploadOpenOrders, uploadCustomersProduction } from '../utils/db'
 
 const FILE_TYPES = [
+  { key: 'customers_production', label: 'לקוחות + ייצור + רכש',     hint: 'קובץ check_data.xlsx — לשוניות: Customers / Sales orders / Production / Calculated Allocation / Open Purchase Orders' },
   { key: 'snapshot',             label: 'דוח מכירות יומי',          hint: 'לשוניות: שורות הזמנה / NISO / דוח חשבוניות' },
-  { key: 'openorders',           label: 'הזמנות פתוחות',            hint: 'קובץ מכירות.xlsx — גיליון Sheet1' },
-  { key: 'customers_production', label: 'לקוחות + ייצור + רכש',     hint: 'לשוניות: Customers / Production / Calculated Allocation / Open Purchase Orders' },
+  { key: 'openorders',           label: 'הזמנות פתוחות (מכירות)',   hint: 'קובץ מכירות.xlsx — גיליון Sheet1' },
 ]
 
 export default function FileUpload() {
@@ -31,7 +31,7 @@ export default function FileUpload() {
       const worker = new Worker('/excelWorker.js')
 
       worker.onerror = (err) => {
-        addMsg('error', 'שגיאה ב-Worker: ' + (err.message || 'לא ידועה'))
+        addMsg('error', 'שגיאה ב-Worker: ' + (err.message || 'לא ידועה — בדוק את קובץ ה-Excel'))
         setUploading(false)
         worker.terminate()
       }
@@ -53,8 +53,20 @@ export default function FileUpload() {
               await uploadOpenOrders(me.data.data)
               addMsg('success', `✓ הועלו ${me.data.data.length} הזמנות פתוחות`)
             } else if (me.data.fileType === 'customers_production') {
-              await uploadCustomersProduction(me.data.customers, me.data.production, me.data.allocation, me.data.purchaseOrders)
-              addMsg('success', `✓ הועלו: ${me.data.customers.length} לקוחות, ${me.data.production.length} פק"עות, ${me.data.allocation.length} חוסרים, ${me.data.purchaseOrders.length} הזמנות רכש`)
+              await uploadCustomersProduction(
+                me.data.customers,
+                me.data.salesOrders || [],
+                me.data.production,
+                me.data.allocation,
+                me.data.purchaseOrders
+              )
+              addMsg('success',
+                `✓ הועלו: ${me.data.customers.length} לקוחות, ` +
+                `${(me.data.salesOrders||[]).length} הזמנות מכירה, ` +
+                `${me.data.production.length} פק"עות, ` +
+                `${me.data.allocation.length} חוסרים, ` +
+                `${me.data.purchaseOrders.length} הזמנות רכש`
+              )
             }
           } catch (err) {
             addMsg('error', 'שגיאת Supabase: ' + err.message)
@@ -74,7 +86,7 @@ export default function FileUpload() {
   const lastMsg = messages[messages.length - 1]
 
   return (
-    <div style={{ maxWidth: 560 }}>
+    <div style={{ maxWidth: 580 }}>
       <div style={{ background: 'var(--surface-2)', border: '0.5px solid var(--border)', borderRadius: 12, padding: '1.2rem 1.4rem', marginBottom: '1rem' }}>
         <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 12 }}>העלאת קובץ Excel</div>
 

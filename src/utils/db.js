@@ -12,9 +12,7 @@ async function upsertChunked(table, rows, conflictCol) {
   }
 }
 
-// ─── Upload helpers ───────────────────────────────────────────────
 export async function uploadSnapshot(plan, niso, invoices) {
-  // Delete existing rows for dates in this batch then re-insert
   const planDates = [...new Set(plan.map(r => r.report_date).filter(Boolean))]
   const nisoDates = [...new Set(niso.map(r => r.report_date).filter(Boolean))]
   const invDates  = [...new Set(invoices.map(r => r.report_date).filter(Boolean))]
@@ -33,13 +31,16 @@ export async function uploadOpenOrders(data) {
   await upsertChunked('sales_open_orders', data)
 }
 
-export async function uploadCustomersProduction(customers, production, allocation, purchaseOrders) {
-  // customers: upsert by customer_account
+export async function uploadCustomersProduction(customers, salesOrders, production, allocation, purchaseOrders) {
   await upsertChunked('sales_customers', customers, 'customer_account')
-  // production, allocation, POs: delete all and re-insert
+
+  await supabase.from('sales_open_orders').delete().neq('id', 0)
+  if (salesOrders && salesOrders.length) await upsertChunked('sales_open_orders', salesOrders)
+
   await supabase.from('sales_production').delete().neq('id', 0)
   await supabase.from('sales_allocation').delete().neq('id', 0)
   await supabase.from('sales_purchase_orders').delete().neq('id', 0)
+
   await upsertChunked('sales_production', production)
   await upsertChunked('sales_allocation', allocation)
   await upsertChunked('sales_purchase_orders', purchaseOrders)
