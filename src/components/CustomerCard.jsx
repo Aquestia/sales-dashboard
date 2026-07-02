@@ -119,7 +119,7 @@ export default function CustomerCard({ customers, salesOrders, production, alloc
                           {k === '_prod' ? (
                             prod ? (
                               <span>
-                                {prod.status} · {weekLabel(prod.planning_priority)}
+                                {done ? 'פק"ע הסתיימה' : `${prod.status} · ${weekLabel(prod.planning_priority)}`}
                                 {hasShortage && <span style={{ color: 'var(--red)', fontWeight: 500 }}> · מחסור</span>}
                               </span>
                             ) : '—'

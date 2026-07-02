@@ -119,6 +119,7 @@ export default function ProductionView({ production, allocation, purchaseOrders 
                       {PROD_COLS.map(([k]) => (
                         <td key={k} style={{ padding: '6px 8px', borderBottom: '0.5px solid var(--border)', whiteSpace: 'nowrap' }}>
                           {k === '_week' ? weekLabel(r.planning_priority)
+                            : k === 'status' ? (isDone(r.status) ? 'פק"ע הסתיימה' : r.status)
                             : k === 'shortage_exist' ? (hasRealShortage(r) ? 'כן' : 'לא')
                             : (r[k] ?? '')}
                         </td>
