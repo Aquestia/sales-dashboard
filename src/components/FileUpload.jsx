@@ -42,7 +42,7 @@ export default function FileUpload() {
               await uploadSnapshot(me.data.plan, me.data.niso, me.data.invoices)
               addMsg('success', `✓ הועלו: ${me.data.plan.length} תוכנית · ${me.data.niso.length} NISO · ${me.data.invoices.length} חשבוניות`)
             } else if (me.data.fileType === 'main') {
-              await uploadMain(me.data)
+              await uploadMain({ filename: file.name, ...me.data })
               addMsg('success',
                 `✓ הועלו: ${me.data.customers.length} לקוחות · ${me.data.salesOrders.length} הזמנות · ` +
                 `${me.data.production.length} פק"עות · ${me.data.allocation.length} חוסרים · ` +

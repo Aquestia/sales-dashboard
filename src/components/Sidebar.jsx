@@ -3,6 +3,7 @@ const NAV = [
     group: 'מכירות',
     items: [
       { key: 'sales',    icon: '📊', label: 'דוח מכירות' },
+      { key: 'monthly',  icon: '📋', label: 'מצב הזמנות יומי' },
       { key: 'bo',       icon: '⚠️', label: 'Back Orders' },
       { key: 'invoices', icon: '🧾', label: 'חשבוניות' },
     ]

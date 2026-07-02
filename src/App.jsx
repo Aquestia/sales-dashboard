@@ -7,7 +7,7 @@ import CustomerInfoView from './components/CustomerInfoView'
 import InvoicesView from './components/InvoicesView'
 import BOView from './components/BOView'
 import SnapshotView from './components/SnapshotView'
-import FileUpload from './components/FileUpload'
+import MonthlyStatusView from './components/MonthlyStatusView'
 import {
   fetchCustomers, fetchSalesOrders, fetchProduction,
   fetchAllocation, fetchPurchaseOrders, fetchDR4, fetchDR5,
@@ -54,6 +54,7 @@ export default function App() {
       <Sidebar page={page} onNav={setPage} />
       <main className="main-content">
         {loading && <div className="loading">טוען נתונים...</div>}
+        {page === 'monthly'    && loaded && <MonthlyStatusView production={data.production} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'sales'      && loaded && <SalesDashboard orders={data.salesOrders} />}
         {page === 'bo'         && loaded && <BOView bo={data.bo} allocation={data.allocation} purchaseOrders={data.purchaseOrders} procurementNotes={data.procurementNotes} />}
         {page === 'invoices'   && loaded && <InvoicesView invoices={data.invoicesDetail} />}

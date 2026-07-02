@@ -37,9 +37,20 @@ export async function uploadSnapshot(plan, niso, invoices) {
   await insertChunked('sales_invoices', invoices)
 }
 
-export async function uploadMain({ customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo }) {
+export async function uploadMain({ filename, customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo }) {
   await upsertChunked('sales_customers', customers, 'customer_account')
-  await clearAndInsert('sales_open_orders', salesOrders)
+
+  // Create file record and get id
+  const fileRecord = await createSalesFile(filename || 'check_data.xlsx')
+  const fileId = fileRecord.id
+
+  // Insert sales orders with file_id
+  const ordersWithFileId = salesOrders.map(o => ({ ...o, file_id: fileId }))
+  await insertChunked('sales_open_orders', ordersWithFileId)
+
+  // Prune old files (keep last 2)
+  await pruneSalesFiles()
+
   await clearAndInsert('sales_production', production)
   await clearAndInsert('sales_allocation', allocation)
   await clearAndInsert('sales_purchase_orders', purchaseOrders)
@@ -113,6 +124,57 @@ export async function fetchDR5() {
 export async function fetchInvoicesDetail() {
   const { data } = await supabase.from('sales_invoices_detail').select('*').order('invoice_date', { ascending: false })
   return data || []
+}
+
+export async function createSalesFile(filename) {
+  const { data, error } = await supabase
+    .from('sales_files')
+    .insert({ filename, batch_date: new Date().toISOString().split('T')[0] })
+    .select()
+    .single()
+  if (error) throw new Error('sales_files: ' + error.message)
+  return data
+}
+
+export async function pruneSalesFiles() {
+  // Keep only last 2 files
+  const { data: files } = await supabase
+    .from('sales_files')
+    .select('id')
+    .order('uploaded_at', { ascending: false })
+  if (!files || files.length <= 2) return
+  const toDelete = files.slice(2).map(f => f.id)
+  // Delete associated orders first
+  await supabase.from('sales_open_orders').delete().in('file_id', toDelete)
+  await supabase.from('sales_files').delete().in('id', toDelete)
+}
+
+export async function fetchSalesFiles() {
+  const { data } = await supabase
+    .from('sales_files')
+    .select('*')
+    .order('uploaded_at', { ascending: false })
+    .limit(2)
+  return data || []
+}
+
+export async function fetchSalesOrdersByFileId(fileId) {
+  let all = []
+  let from = 0
+  const size = 1000
+  while (true) {
+    const { data, error } = await supabase
+      .from('sales_open_orders')
+      .select('*')
+      .eq('file_id', fileId)
+      .range(from, from + size - 1)
+    if (error) throw new Error(error.message)
+    if (!data || data.length === 0) break
+    all = all.concat(data)
+    if (data.length < size) break
+    from += size
+  }
+  return all
 }
 
 export async function fetchBO() {
