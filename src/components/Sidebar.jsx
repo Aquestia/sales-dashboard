@@ -1,40 +1,35 @@
 const NAV = [
   {
     group: 'מכירות',
-    icon: '📊',
     items: [
-      { key: 'sales',    label: 'דוח מכירות' },
-      { key: 'bo',       label: 'Back Orders' },
-      { key: 'invoices', label: 'חשבוניות' },
+      { key: 'sales',    icon: '📊', label: 'דוח מכירות' },
+      { key: 'bo',       icon: '⚠️', label: 'Back Orders' },
+      { key: 'invoices', icon: '🧾', label: 'חשבוניות' },
     ]
   },
   {
     group: 'ייצור',
-    icon: '🏭',
     items: [
-      { key: 'production', label: 'תכנון ייצור' },
+      { key: 'production', icon: '🏭', label: 'תכנון ייצור' },
     ]
   },
   {
     group: 'לקוחות',
-    icon: '👥',
     items: [
-      { key: 'customer', label: 'כרטיס לקוח' },
-      { key: 'custinfo', label: 'פרטי לקוח' },
+      { key: 'customer', icon: '🔍', label: 'כרטיס לקוח' },
+      { key: 'custinfo', icon: '👤', label: 'פרטי לקוח' },
     ]
   },
   {
     group: 'דוח יומי',
-    icon: '📅',
     items: [
-      { key: 'snapshot', label: 'תוכנית / משלוח / חשבוניות' },
+      { key: 'snapshot', icon: '📅', label: 'תוכנית / משלוח / חשבוניות' },
     ]
   },
   {
     group: 'ניהול',
-    icon: '⚙️',
     items: [
-      { key: 'upload', label: 'העלאת קובץ' },
+      { key: 'upload', icon: '📁', label: 'העלאת קובץ' },
     ]
   },
 ]
@@ -42,18 +37,22 @@ const NAV = [
 export default function Sidebar({ page, onNav }) {
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo">Aquestia</div>
-      <nav>
+      <div className="sidebar-logo">
+        <div className="sidebar-logo-title">דאשבורד מכירות</div>
+        <div className="sidebar-logo-sub">Aquestia Group</div>
+      </div>
+      <nav style={{ flex: 1, padding: '8px 0' }}>
         {NAV.map(group => (
           <div key={group.group} className="nav-group">
-            <div className="nav-group-label">{group.icon} {group.group}</div>
+            <div className="nav-group-label">{group.group}</div>
             {group.items.map(item => (
               <button
                 key={item.key}
                 className={'nav-item' + (page === item.key ? ' active' : '')}
                 onClick={() => onNav(item.key)}
               >
-                {item.label}
+                <span style={{ fontSize: 15 }}>{item.icon}</span>
+                <span style={{ flex: 1 }}>{item.label}</span>
               </button>
             ))}
           </div>
