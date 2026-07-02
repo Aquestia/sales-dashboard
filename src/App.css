@@ -1,0 +1,26 @@
+:root {
+  --surface-0: #f5f4f1;
+  --surface-1: #fbfaf8;
+  --surface-2: #ffffff;
+  --text-primary: #1f1e1c;
+  --text-secondary: #6b6a66;
+  --text-muted: #9a9892;
+  --border: #e3e1db;
+  --border-strong: #cfccc4;
+  --border-accent: #185fa5;
+  --bg-accent: #e6f1fb;
+  --red: #b3261e;
+  --radius: 8px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0; background: var(--surface-0); font-family: 'Segoe UI', Arial, sans-serif; color: var(--text-primary); }
+button { font-family: inherit; }
+.page { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+.page-title { font-size: 20px; font-weight: 600; margin: 0 0 1.2rem; }
+.tabbar { display: flex; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tabbtn { padding: 10px 16px; border: none; background: none; cursor: pointer; font-size: 13px; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabbtn.active { color: var(--text-primary); border-bottom-color: var(--border-accent); font-weight: 500; }
+.tab-content { min-height: 400px; }
+input, select { height: 36px; padding: 0 10px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); background: var(--surface-2); font-size: 14px; color: var(--text-primary); font-family: inherit; }
+table { border-collapse: collapse; width: 100%; }
+th, td { font-size: 12px; }
