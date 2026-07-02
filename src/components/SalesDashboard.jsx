@@ -62,6 +62,9 @@ export default function SalesDashboard({ orders }) {
     return Object.values(m).sort((a, b) => a.key.localeCompare(b.key))
   }, [orders])
 
+  const unconfirmed = useMemo(() => orders.filter(r => !r.confirmed_ship_date), [orders])
+  const unconfirmedAmt = unconfirmed.reduce((s, r) => s + (r.remaining_amount || 0), 0)
+
   const detailRows = useMemo(() => {
     if (!selected) return []
     if (selected.type === 'all')          return orders
@@ -71,6 +74,7 @@ export default function SalesDashboard({ orders }) {
     if (selected.type === 'net')          return netOrders
     if (selected.type === 'net-internal') return netOrders.filter(r => r.cat === 'Internal')
     if (selected.type === 'net-external') return netOrders.filter(r => r.cat === 'External')
+    if (selected.type === 'unconfirmed')  return unconfirmed
     if (selected.type === 'month') {
       const m = months.find(m => m.key === selected.key)
       if (!m) return []
@@ -79,7 +83,7 @@ export default function SalesDashboard({ orders }) {
       return m.rows
     }
     return []
-  }, [selected, orders, months, dropOrders, consignment, india, netOrders])
+  }, [selected, orders, months, dropOrders, consignment, india, netOrders, unconfirmed])
 
   function toggle(type, key, cat) {
     const same = selected?.type === type && selected?.key === key && selected?.cat === cat
@@ -155,7 +159,6 @@ export default function SalesDashboard({ orders }) {
                   <td style={{ padding: '8px 10px', borderBottom: '0.5px solid var(--border)', fontWeight: 500 }}>
                     {monthLabel(m.key)}
                   </td>
-                  {/* Total */}
                   <td style={{ padding: '8px 10px', borderBottom: '0.5px solid var(--border)' }}>
                     <button onClick={e => { e.stopPropagation(); toggle('month', m.key, undefined) }}
                       style={{ background: isActive('month', m.key, undefined) ? 'var(--bg-accent)' : 'transparent',
@@ -163,7 +166,6 @@ export default function SalesDashboard({ orders }) {
                       ${fmt(m.all)}
                     </button>
                   </td>
-                  {/* Internal */}
                   <td style={{ padding: '8px 10px', borderBottom: '0.5px solid var(--border)' }}>
                     <button onClick={e => { e.stopPropagation(); toggle('month', m.key, 'internal') }}
                       style={{ background: isActive('month', m.key, 'internal') ? 'var(--bg-accent)' : 'transparent',
@@ -171,7 +173,6 @@ export default function SalesDashboard({ orders }) {
                       ${fmt(m.internal)}
                     </button>
                   </td>
-                  {/* External */}
                   <td style={{ padding: '8px 10px', borderBottom: '0.5px solid var(--border)' }}>
                     <button onClick={e => { e.stopPropagation(); toggle('month', m.key, 'external') }}
                       style={{ background: isActive('month', m.key, 'external') ? 'var(--bg-accent)' : 'transparent',
@@ -184,6 +185,27 @@ export default function SalesDashboard({ orders }) {
                   </td>
                 </tr>
               ))}
+              {/* Unconfirmed row */}
+              {unconfirmed.length > 0 && (
+                <tr style={{ cursor: 'pointer', background: '#fffbeb' }}
+                  onClick={() => toggle('unconfirmed')}>
+                  <td style={{ padding: '8px 10px', borderBottom: '0.5px solid var(--border)', fontWeight: 500, color: '#92650a' }}>
+                    טרם אושר
+                  </td>
+                  <td style={{ padding: '8px 10px', borderBottom: '0.5px solid var(--border)' }}>
+                    <button onClick={e => { e.stopPropagation(); toggle('unconfirmed') }}
+                      style={{ background: isActive('unconfirmed') ? 'var(--bg-accent)' : 'transparent',
+                        border: 'none', cursor: 'pointer', fontWeight: 500, padding: '2px 6px', borderRadius: 4, color: '#92650a' }}>
+                      ${fmt(unconfirmedAmt)}
+                    </button>
+                  </td>
+                  <td style={{ padding: '8px 10px', borderBottom: '0.5px solid var(--border)', color: 'var(--text-muted)' }}>—</td>
+                  <td style={{ padding: '8px 10px', borderBottom: '0.5px solid var(--border)', color: 'var(--text-muted)' }}>—</td>
+                  <td style={{ padding: '8px 10px', borderBottom: '0.5px solid var(--border)', color: 'var(--text-muted)' }}>
+                    {unconfirmed.length}
+                  </td>
+                </tr>
+              )}
             </tbody>
             {/* Total footer */}
             <tfoot>
