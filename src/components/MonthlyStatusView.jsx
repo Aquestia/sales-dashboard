@@ -16,6 +16,20 @@ const shortStatus = s => s.replace('בהרכבת הרכבת ','הרכבת ').rep
 
 function buildMonthData(orders, production, dr4, dr5) {
   const { productionMap, dr4ByParent, dr5ByParent } = buildLookups(production, dr4, dr5)
+  
+  // DEBUG
+  console.log('🔍 buildMonthData:', orders.length, 'orders,', production.length, 'production,', dr4.length, 'DR4,', dr5.length, 'DR5')
+  const sample = orders.filter(o => o.production_number && o.production_number !== '').slice(0,3)
+  sample.forEach(o => {
+    const p = productionMap[o.production_number]
+    console.log(`  order ${o.sales_order} prod#=${o.production_number} → found=${!!p} status=${p?.status} pool=${p?.pool} cis=${p?.components_in_station}`)
+  })
+  const statusCounts = {}
+  orders.forEach(o => {
+    const st = classifyOrder(o, productionMap, dr4ByParent, dr5ByParent)
+    statusCounts[st] = (statusCounts[st]||0)+1
+  })
+  console.log('📊 Status counts:', statusCounts)
   const byMonth = {}
   orders.forEach(o => {
     const mk = monthKey(o.confirmed_ship_date)
