@@ -45,13 +45,13 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [], procu
     ? (months.find(m => m.key === selectedMonth)?.rows || []).sort((a,b) => (b.back_orders_amount||0) - (a.back_orders_amount||0))
     : []
 
-  // Chart dimensions
-  const BAR_W = 56
-  const GAP   = 16
-  const H     = 180
-  const PAD_L = 60
-  const PAD_B = 40
-  const PAD_T = 50
+  // Chart dimensions - full width
+  const BAR_W = 72
+  const GAP   = 24
+  const H     = 200
+  const PAD_L = 70
+  const PAD_B = 44
+  const PAD_T = 54
   const maxAmt = Math.max(...months.map(m => m.amount), 1)
   const chartW = PAD_L + months.length * (BAR_W + GAP) + GAP
 
@@ -67,21 +67,15 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [], procu
           <div className="kpi-sub">{bo.length} שורות</div>
         </div>
         <div className="kpi-card" style={{ cursor: 'default' }}>
-          <div className="kpi-label">פיגורים (Past Due)</div>
-          <div className="kpi-value">${fmt(totalPast)}</div>
-          <div className="kpi-sub"></div>
-        </div>
-        <div className="kpi-card" style={{ cursor: 'default' }}>
           <div className="kpi-label">חודשים</div>
           <div className="kpi-value">{months.length}</div>
-          <div className="kpi-sub"></div>
         </div>
       </div>
 
       {/* Bar chart */}
-      <div className="section-box" style={{ overflowX: 'auto' }}>
+      <div className="section-box" style={{ overflowX: 'auto', textAlign: 'center' }}>
         <div className="section-title">לפי תאריך מבוקש — חודשי</div>
-        <svg width={chartW} height={H + PAD_T + PAD_B} style={{ display: 'block', direction: 'ltr' }}>
+        <svg width={Math.max(chartW, 600)} height={H + PAD_T + PAD_B} style={{ display: 'inline-block', direction: 'ltr' }}>
           {/* Y axis grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map(pct => {
             const y = PAD_T + H - pct * H
