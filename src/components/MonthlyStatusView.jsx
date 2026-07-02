@@ -146,12 +146,12 @@ export default function MonthlyStatusView({ production, dr4, dr5 }) {
 
   // Show current month + next 2 months
   const now = new Date()
-  const displayMonths = [0, 1, 2].map(offset => {
+  const displayMonths = [0, 1].map(offset => {
     const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
   })
 
-  const COLORS = ['#D97706', '#1D6FA5', '#2D7D46']
+  const COLORS = ['#D97706', '#1D6FA5']
 
   if (loading) return <div className="loading">טוען נתונים...</div>
 

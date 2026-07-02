@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { uploadSnapshot, uploadMain } from '../utils/db'
+import { useState, useRef, useEffect } from 'react'
+import { uploadSnapshot, uploadMain, fetchSalesFiles } from '../utils/db'
 
 const FILE_TYPES = [
   { key: 'main',     label: 'קובץ ראשי (check_data)',  hint: 'לשוניות: Customers / Sales orders / Production / Calculated Allocation / Open Purchase Orders / DR4 / DR5 / Invoices / BO' },
@@ -10,7 +10,12 @@ export default function FileUpload() {
   const [fileType, setFileType] = useState('main')
   const [messages, setMessages] = useState([])
   const [uploading, setUploading] = useState(false)
+  const [savedFiles, setSavedFiles] = useState([])
   const inputRef = useRef()
+
+  useEffect(() => {
+    fetchSalesFiles().then(setSavedFiles)
+  }, [])
 
   function addMsg(type, msg) {
     setMessages(prev => [...prev, { type, msg, time: new Date().toLocaleTimeString('he-IL') }])
@@ -56,6 +61,7 @@ export default function FileUpload() {
           setUploading(false)
           worker.terminate()
           if (inputRef.current) inputRef.current.value = ''
+          fetchSalesFiles().then(setSavedFiles)
         }
       }
       worker.postMessage({ buffer: ev.target.result, fileType })
@@ -100,6 +106,27 @@ export default function FileUpload() {
             <div key={i} style={{ fontSize: 12, marginBottom: 4,
               color: m.type === 'success' ? '#1a6e3a' : m.type === 'error' ? 'var(--red)' : 'var(--text-secondary)' }}>
               <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>{m.time}</span>{m.msg}
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Saved files list */}
+      {savedFiles.length > 0 && (
+        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-card)', borderRadius: 10, padding: '1rem 1.2rem', marginTop: '1rem' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 10 }}>קבצים שמורים (עד 2 גרסאות):</div>
+          {savedFiles.map((f, i) => (
+            <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '8px 10px', borderRadius: 8, marginBottom: 6,
+              background: i === 0 ? 'var(--blue-bg)' : 'var(--bg-row)',
+              border: '0.5px solid ' + (i === 0 ? 'var(--border-blue)' : 'var(--border-card)') }}>
+              <div>
+                <span style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: i === 0 ? 'var(--blue-dark)' : 'var(--text-main)' }}>
+                  {i === 0 ? '📅 היום — ' : '📅 אתמול — '}{f.filename}
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {f.batch_date} · {new Date(f.uploaded_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
           ))}
         </div>
