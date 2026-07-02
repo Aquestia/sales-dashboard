@@ -47,10 +47,10 @@ export default function SalesDashboard({ orders }) {
   const totalInternal = orders.filter(r => r.cat === 'Internal').reduce((s, r) => s + (r.remaining_amount || 0), 0)
   const totalExternal = orders.filter(r => r.cat === 'External').reduce((s, r) => s + (r.remaining_amount || 0), 0)
 
-  // Monthly breakdown by confirmed_ship_date
+  // Monthly breakdown — רק הזמנות נטו (ללא Drop/Consignment/India)
   const months = useMemo(() => {
     const m = {}
-    orders.forEach(r => {
+    netOrders.forEach(r => {
       const k = monthKey(r.confirmed_ship_date)
       if (!k) return
       if (!m[k]) m[k] = { key: k, all: 0, internal: 0, external: 0, rows: [] }
@@ -60,9 +60,9 @@ export default function SalesDashboard({ orders }) {
       m[k].rows.push(r)
     })
     return Object.values(m).sort((a, b) => a.key.localeCompare(b.key))
-  }, [orders])
+  }, [netOrders])
 
-  const unconfirmed = useMemo(() => orders.filter(r => !r.confirmed_ship_date), [orders])
+  const unconfirmed = useMemo(() => netOrders.filter(r => !r.confirmed_ship_date), [netOrders])
   const unconfirmedAmt = unconfirmed.reduce((s, r) => s + (r.remaining_amount || 0), 0)
 
   const detailRows = useMemo(() => {
