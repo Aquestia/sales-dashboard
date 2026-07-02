@@ -21,7 +21,7 @@ const DETAIL_COLS = [
   ['open_sales_amount','שווי פתוח'], ['past_due','פיגור $'], ['sales_status','סטטוס']
 ]
 
-export default function BOView({ bo, allocation = [], purchaseOrders = [], procurementNotes = {} }) {
+export default function BOView({ bo, allocation = [], purchaseOrders = [], procurementNotes = {}, production = [] }) {
   const [selectedMonth, setSelectedMonth] = useState(null)
 
   const totalBO    = bo.reduce((s, r) => s + (r.back_orders_amount || 0), 0)
@@ -145,7 +145,7 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [], procu
 
             {/* Customer accordion */}
             {custGroups.map((grp, gi) => (
-              <CustomerGroup key={grp.customer} grp={grp} cols={DETAIL_COLS} allocation={allocation} purchaseOrders={purchaseOrders} procurementNotes={procurementNotes} />
+              <CustomerGroup key={grp.customer} grp={grp} cols={DETAIL_COLS} allocation={allocation} purchaseOrders={purchaseOrders} procurementNotes={procurementNotes} production={production} />
             ))}
           </div>
         )
@@ -155,7 +155,7 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [], procu
   )
 }
 
-function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes }) {
+function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes, production }) {
   const [open, setOpen] = useState(false)
   const [openShortage, setOpenShortage] = useState(null)
   const [notes, setNotes] = useState(procurementNotes)
@@ -183,6 +183,16 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
       a.missing_qty > 0
     )
   }
+
+  // Build production lookup by item_number
+  const prodByItem = useMemo(() => {
+    const m = {}
+    production.forEach(p => {
+      if (!m[p.item_number]) m[p.item_number] = []
+      m[p.item_number].push(p)
+    })
+    return m
+  }, [production])
 
   function bestPO(itemNumber) {
     const candidates = purchaseOrders.filter(p =>
@@ -238,13 +248,17 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
                   <>
                     <tr key={i} style={{ background: i % 2 === 0 ? 'var(--bg-row)' : 'var(--bg-card)' }}>
                       <td style={{ padding: '6px 8px', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                        {hasShortage && (
-                          <button onClick={() => setOpenShortage(isOpen ? null : shortageKey)}
-                            title="לחץ לפירוט חוסרים"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, padding: 0 }}>
-                            🚩
-                          </button>
-                        )}
+                        {hasShortage && (() => {
+                          const hasPurch = shortages.some(s => s.default_order_type === 'Purchase order' || !s.default_order_type)
+                          const hasProd  = shortages.some(s => s.default_order_type === 'Production')
+                          return (
+                            <button onClick={() => setOpenShortage(isOpen ? null : shortageKey)}
+                              title="לחץ לפירוט חוסרים"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, padding: 0 }}>
+                              {hasProd && !hasPurch ? '🟣' : !hasProd && hasPurch ? '🔴' : '🟣🔴'}
+                            </button>
+                          )
+                        })()}
                       </td>
                       {cols.filter(([k]) => k !== 'customer').map(([k]) => (
                         <td key={k} style={{ padding: '6px 8px', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>
@@ -256,82 +270,98 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
                         </td>
                       ))}
                     </tr>
-                    {/* Shortage detail */}
-                    {isOpen && (
-                      <tr key={shortageKey + '-shortage'}>
-                        <td colSpan={cols.length} style={{ padding: '8px 12px', background: '#fef9f0', borderBottom: '0.5px solid var(--border-tbl)' }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--amber-dark)', marginBottom: 8 }}>
-                            🚩 מק"טים חסרים — הזמנה {r.doc}
-                          </div>
-                          <div style={{ overflowX: 'auto' }}>
-                            <table style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
-                              <thead>
-                                <tr>
-                                  {['מק"ט','שם פריט','סוג חוסר','כמות חסרה','תאריך נדרש','הזמנת רכש','ספק','תאריך אספקה','סטטוס','הערה'].map(h => (
-                                    <th key={h} style={{ textAlign: 'right', padding: '4px 8px', color: 'var(--text-muted)', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap' }}>{h}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {shortages.map((s, si) => {
-                                  const po = bestPO(s.item_number)
-                                  const eta = po ? (po.confirmed_receipt_date || po.requested_receipt_date || '') : ''
-                                  const late = s.requested_delivery_date && eta && eta > s.requested_delivery_date
-                                  const hasPO = !!po
-                                  return (
-                                    <tr key={si} style={{ background: hasPO ? '#eaf3de' : '#fbe9e7' }}>
-                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{s.item_number}</td>
-                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{s.product_name}</td>
-                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{s.default_order_type === 'Purchase order' ? 'רכש' : 'ייצור'}</td>
-                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap', fontWeight: 600 }}>{Math.round(s.missing_qty)}</td>
-                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{s.requested_delivery_date || '—'}</td>
-                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{po?.purchase_order || '—'}</td>
-                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{po?.vendor_name || '—'}</td>
-                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{eta || '—'}</td>
-                                      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>
-                                        {hasPO
-                                          ? (late
-                                            ? <span style={{ color: 'var(--red-dark)', fontWeight: 600 }}>איחור צפוי</span>
-                                            : <span style={{ color: 'var(--green-dark)' }}>בזמן</span>)
-                                          : <span style={{ color: 'var(--red-dark)', fontWeight: 600 }}>אין הזמנת רכש</span>
-                                        }
-                                      </td>
-                                      <td style={{ padding: '4px 8px', minWidth: 180 }}>
-                                        {editingNote === s.item_number ? (
-                                          <div style={{ display: 'flex', gap: 4 }}>
-                                            <input
-                                              defaultValue={notes[s.item_number]?.note_procurement || ''}
-                                              id={`note-${s.item_number}`}
-                                              style={{ height: 28, fontSize: 11, flex: 1 }}
-                                              autoFocus
-                                            />
-                                            <button onClick={() => saveNote(s.item_number, document.getElementById(`note-${s.item_number}`).value)}
-                                              disabled={saving}
-                                              style={{ fontSize: 11, padding: '2px 8px', background: 'var(--blue-dark)', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
-                                              {saving ? '...' : '💾'}
-                                            </button>
-                                            <button onClick={() => setEditingNote(null)}
-                                              style={{ fontSize: 11, padding: '2px 6px', background: 'none', border: '0.5px solid var(--border-tbl)', borderRadius: 4, cursor: 'pointer' }}>✕</button>
-                                          </div>
-                                        ) : (
-                                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                            <span style={{ fontSize: 11, color: notes[s.item_number]?.note_procurement ? 'var(--text-main)' : 'var(--text-hint)' }}>
-                                              {notes[s.item_number]?.note_procurement || 'הוסף הערה...'}
-                                            </span>
-                                            <button onClick={() => setEditingNote(s.item_number)}
-                                              style={{ fontSize: 11, padding: '1px 6px', background: 'none', border: '0.5px solid var(--border-tbl)', borderRadius: 4, cursor: 'pointer', color: 'var(--text-muted)' }}>✏️</button>
-                                          </div>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  )
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
+                    {/* Shortage detail — split by type */}
+                    {isOpen && (() => {
+                      const purchItems = shortages.filter(s => s.default_order_type === 'Purchase order' || !s.default_order_type)
+                      const prodItems  = shortages.filter(s => s.default_order_type === 'Production')
+                      const CS = { padding:'4px 8px', whiteSpace:'nowrap', fontSize:11, textAlign:'right' }
+                      return (
+                        <tr key={shortageKey + '-shortage'}>
+                          <td colSpan={cols.length} style={{ padding:'8px 12px', background:'#fefcf8', borderBottom:'0.5px solid var(--border-tbl)' }}>
+
+                            {/* PRODUCTION shortages — purple */}
+                            {prodItems.length > 0 && (
+                              <div style={{ marginBottom: purchItems.length ? 12 : 0 }}>
+                                <div style={{ fontSize:12, fontWeight:600, color:'#6B21A8', marginBottom:6 }}>🟣 חוסרי ייצור — הזמנה {r.doc}</div>
+                                <table style={{ fontSize:11, width:'100%', borderCollapse:'collapse' }}>
+                                  <thead><tr>
+                                    {['מק"ט חסר','שם פריט','כמות חסרה','תאריך נדרש','פק"ע','סטטוס','שבוע','מאגר','מחסור בפק"ע'].map(h=>(
+                                      <th key={h} style={{ ...CS, color:'var(--text-muted)', borderBottom:'0.5px solid var(--border-tbl)', fontWeight:600 }}>{h}</th>
+                                    ))}
+                                  </tr></thead>
+                                  <tbody>
+                                    {prodItems.map((s,si) => {
+                                      const prods = prodByItem[s.item_number] || []
+                                      const ap = prods.find(p=>!['Ended','Reported as finished'].includes(p.status)) || prods[0]
+                                      return (
+                                        <tr key={si} style={{ background: ap ? '#f3e8ff' : '#fbe9e7' }}>
+                                          <td style={CS}>{s.item_number}</td>
+                                          <td style={CS}>{s.product_name}</td>
+                                          <td style={{ ...CS, fontWeight:600 }}>{Math.round(s.missing_qty)}</td>
+                                          <td style={CS}>{s.requested_delivery_date||'—'}</td>
+                                          <td style={CS}>{ap?.production||'—'}</td>
+                                          <td style={CS}>{ap?.status||'—'}</td>
+                                          <td style={CS}>{ap?.planning_priority===188||!ap?.planning_priority?'לא משובץ':`שבוע ${ap?.planning_priority}`}</td>
+                                          <td style={CS}>{ap?.pool||'—'}</td>
+                                          <td style={CS}>{ap?.shortage_exist==='Yes'?<span style={{color:'var(--red-dark)',fontWeight:600}}>⚠ כן</span>:<span style={{color:'var(--green-dark)'}}>לא</span>}</td>
+                                        </tr>
+                                      )
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+
+                            {/* PURCHASE shortages — red */}
+                            {purchItems.length > 0 && (
+                              <div>
+                                <div style={{ fontSize:12, fontWeight:600, color:'var(--red-dark)', marginBottom:6 }}>🔴 חוסרי רכש — הזמנה {r.doc}</div>
+                                <table style={{ fontSize:11, width:'100%', borderCollapse:'collapse' }}>
+                                  <thead><tr>
+                                    {['מק"ט','שם פריט','כמות חסרה','תאריך נדרש','הזמנת רכש','ספק','תאריך אספקה','סטטוס','הערה'].map(h=>(
+                                      <th key={h} style={{ ...CS, color:'var(--text-muted)', borderBottom:'0.5px solid var(--border-tbl)', fontWeight:600 }}>{h}</th>
+                                    ))}
+                                  </tr></thead>
+                                  <tbody>
+                                    {purchItems.map((s,si) => {
+                                      const po = bestPO(s.item_number)
+                                      const eta = po?(po.confirmed_receipt_date||po.requested_receipt_date||''):''
+                                      const late = s.requested_delivery_date && eta && eta > s.requested_delivery_date
+                                      return (
+                                        <tr key={si} style={{ background: po?'#eaf3de':'#fbe9e7' }}>
+                                          <td style={CS}>{s.item_number}</td>
+                                          <td style={CS}>{s.product_name}</td>
+                                          <td style={{ ...CS, fontWeight:600 }}>{Math.round(s.missing_qty)}</td>
+                                          <td style={CS}>{s.requested_delivery_date||'—'}</td>
+                                          <td style={CS}>{po?.purchase_order||'—'}</td>
+                                          <td style={CS}>{po?.vendor_name||'—'}</td>
+                                          <td style={CS}>{eta||'—'}</td>
+                                          <td style={CS}>{po?(late?<span style={{color:'var(--red-dark)',fontWeight:600}}>איחור צפוי</span>:<span style={{color:'var(--green-dark)'}}>בזמן</span>):<span style={{color:'var(--red-dark)',fontWeight:600}}>אין הזמנת רכש</span>}</td>
+                                          <td style={{ ...CS, minWidth:160 }}>
+                                            {editingNote===s.item_number?(
+                                              <div style={{display:'flex',gap:4}}>
+                                                <input defaultValue={notes[s.item_number]?.note_procurement||''} id={`note-${s.item_number}`} style={{height:26,fontSize:11,flex:1}} autoFocus />
+                                                <button onClick={()=>saveNote(s.item_number,document.getElementById(`note-${s.item_number}`).value)} disabled={saving} style={{fontSize:11,padding:'2px 8px',background:'var(--blue-dark)',color:'#fff',border:'none',borderRadius:4,cursor:'pointer'}}>{saving?'...':'💾'}</button>
+                                                <button onClick={()=>setEditingNote(null)} style={{fontSize:11,padding:'2px 6px',background:'none',border:'0.5px solid var(--border-tbl)',borderRadius:4,cursor:'pointer'}}>✕</button>
+                                              </div>
+                                            ):(
+                                              <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                                                <span style={{fontSize:11,color:notes[s.item_number]?.note_procurement?'var(--text-main)':'var(--text-hint)'}}>{notes[s.item_number]?.note_procurement||'הוסף הערה...'}</span>
+                                                <button onClick={()=>setEditingNote(s.item_number)} style={{fontSize:11,padding:'1px 6px',background:'none',border:'0.5px solid var(--border-tbl)',borderRadius:4,cursor:'pointer',color:'var(--text-muted)'}}>✏️</button>
+                                              </div>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      )
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })()}
                   </>
                 )
               })}
