@@ -8,6 +8,7 @@ import InvoicesView from './components/InvoicesView'
 import BOView from './components/BOView'
 import SnapshotView from './components/SnapshotView'
 import MonthlyStatusView from './components/MonthlyStatusView'
+import FileUpload from './components/FileUpload'
 import {
   fetchCustomers, fetchSalesOrders, fetchProduction,
   fetchAllocation, fetchPurchaseOrders, fetchDR4, fetchDR5,
