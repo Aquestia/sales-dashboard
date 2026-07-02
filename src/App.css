@@ -109,7 +109,7 @@ table { border-collapse: collapse; width: 100%; }
 .main-content {
   flex: 1;
   min-width: 0;
-  padding: 1.5rem 1.75rem;
+  padding: 1.25rem 1.25rem;
   overflow-x: hidden;
 }
 
@@ -128,7 +128,7 @@ table { border-collapse: collapse; width: 100%; }
 /* ── KPI cards ── */
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px; margin-bottom: 1rem;
 }
 .kpi-card {
