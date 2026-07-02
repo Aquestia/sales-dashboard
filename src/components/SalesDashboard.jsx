@@ -32,7 +32,18 @@ function monthLabel(key) {
 export default function SalesDashboard({ orders }) {
   const [selected, setSelected] = useState(null) // { type: 'all'|'internal'|'external'|'month', key?, cat? }
 
-  const totalAll      = orders.reduce((s, r) => s + (r.remaining_amount || 0), 0)
+  const dropOrders   = orders.filter(r => String(r.sale_type_code).trim() === '30')
+  const consignment  = orders.filter(r => String(r.sale_type_code).trim() === '40')
+  const india        = orders.filter(r => String(r.sale_type_code).trim() === '50')
+  const excluded     = new Set(['30','40','50'])
+  const netOrders    = orders.filter(r => !excluded.has(String(r.sale_type_code).trim()))
+  const netTotal     = netOrders.reduce((s, r) => s + (r.remaining_amount || 0), 0)
+  const netInternal  = netOrders.filter(r => r.cat === 'Internal').reduce((s, r) => s + (r.remaining_amount || 0), 0)
+  const netExternal  = netOrders.filter(r => r.cat === 'External').reduce((s, r) => s + (r.remaining_amount || 0), 0)
+  const dropAmt      = dropOrders.reduce((s, r) => s + (r.remaining_amount || 0), 0)
+  const consAmt      = consignment.reduce((s, r) => s + (r.remaining_amount || 0), 0)
+  const indiaAmt     = india.reduce((s, r) => s + (r.remaining_amount || 0), 0)
+  const totalAll     = orders.reduce((s, r) => s + (r.remaining_amount || 0), 0)
   const totalInternal = orders.filter(r => r.cat === 'Internal').reduce((s, r) => s + (r.remaining_amount || 0), 0)
   const totalExternal = orders.filter(r => r.cat === 'External').reduce((s, r) => s + (r.remaining_amount || 0), 0)
 
@@ -51,12 +62,15 @@ export default function SalesDashboard({ orders }) {
     return Object.values(m).sort((a, b) => a.key.localeCompare(b.key))
   }, [orders])
 
-  // Detail rows to show
   const detailRows = useMemo(() => {
     if (!selected) return []
-    if (selected.type === 'all')      return orders
-    if (selected.type === 'internal') return orders.filter(r => r.cat === 'Internal')
-    if (selected.type === 'external') return orders.filter(r => r.cat === 'External')
+    if (selected.type === 'all')          return orders
+    if (selected.type === 'drop')         return dropOrders
+    if (selected.type === 'consignment')  return consignment
+    if (selected.type === 'india')        return india
+    if (selected.type === 'net')          return netOrders
+    if (selected.type === 'net-internal') return netOrders.filter(r => r.cat === 'Internal')
+    if (selected.type === 'net-external') return netOrders.filter(r => r.cat === 'External')
     if (selected.type === 'month') {
       const m = months.find(m => m.key === selected.key)
       if (!m) return []
@@ -65,7 +79,7 @@ export default function SalesDashboard({ orders }) {
       return m.rows
     }
     return []
-  }, [selected, orders, months])
+  }, [selected, orders, months, dropOrders, consignment, india, netOrders])
 
   function toggle(type, key, cat) {
     const same = selected?.type === type && selected?.key === key && selected?.cat === cat
@@ -74,26 +88,52 @@ export default function SalesDashboard({ orders }) {
 
   function isActive(type, key, cat) {
     return selected?.type === type && selected?.key === key && selected?.cat === cat
-  }
-
-  return (
+  }  return (
     <div>
       <h2 className="page-heading">דוח מכירות — הזמנות פתוחות</h2>
 
-      {/* KPI Cards */}
+      {/* Row 1: Total + exclusions */}
+      <div className="kpi-row" style={{ marginBottom: '0.75rem' }}>
+        <button onClick={() => toggle('all')} className={'kpi-card' + (isActive('all') ? ' active' : '')}>
+          <div className="kpi-label">סה"כ הזמנות פתוחות</div>
+          <div className="kpi-value">${fmt(totalAll)}</div>
+          <div className="kpi-sub">{orders.length} שורות</div>
+        </button>
+        <button onClick={() => toggle('drop')} className={'kpi-card' + (isActive('drop') ? ' active' : '')}>
+          <div className="kpi-label">Drop Order</div>
+          <div className="kpi-value">${fmt(dropAmt)}</div>
+          <div className="kpi-sub">{dropOrders.length} שורות</div>
+        </button>
+        <button onClick={() => toggle('consignment')} className={'kpi-card' + (isActive('consignment') ? ' active' : '')}>
+          <div className="kpi-label">Consignment</div>
+          <div className="kpi-value">${fmt(consAmt)}</div>
+          <div className="kpi-sub">{consignment.length} שורות</div>
+        </button>
+        <button onClick={() => toggle('india')} className={'kpi-card' + (isActive('india') ? ' active' : '')}>
+          <div className="kpi-label">Aquestia India</div>
+          <div className="kpi-value">${fmt(indiaAmt)}</div>
+          <div className="kpi-sub">{india.length} שורות</div>
+        </button>
+      </div>
+
+      {/* Row 2: Net (after exclusions) + internal/external split */}
       <div className="kpi-row">
-        {[
-          { label: 'סה"כ הזמנות פתוחות', value: '$' + fmt(totalAll),      sub: orders.length + ' שורות',                                 type: 'all' },
-          { label: 'לקוחות פנימיים',      value: '$' + fmt(totalInternal), sub: orders.filter(r=>r.cat==='Internal').length + ' שורות',   type: 'internal' },
-          { label: 'לקוחות חיצוניים',    value: '$' + fmt(totalExternal), sub: orders.filter(r=>r.cat==='External').length + ' שורות',   type: 'external' },
-        ].map(k => (
-          <button key={k.type} onClick={() => toggle(k.type)}
-            className={'kpi-card' + (isActive(k.type) ? ' active' : '')}>
-            <div className="kpi-label">{k.label}</div>
-            <div className="kpi-value">{k.value}</div>
-            <div className="kpi-sub">{k.sub}</div>
-          </button>
-        ))}
+        <button onClick={() => toggle('net')} className={'kpi-card' + (isActive('net') ? ' active' : '')}
+          style={{ borderColor: 'var(--border-accent)' }}>
+          <div className="kpi-label">סה"כ נטו (ללא Drop/Consignment/India)</div>
+          <div className="kpi-value">${fmt(netTotal)}</div>
+          <div className="kpi-sub">{netOrders.length} שורות</div>
+        </button>
+        <button onClick={() => toggle('net-internal')} className={'kpi-card' + (isActive('net-internal') ? ' active' : '')}>
+          <div className="kpi-label">לקוחות פנימיים (נטו)</div>
+          <div className="kpi-value">${fmt(netInternal)}</div>
+          <div className="kpi-sub">{netOrders.filter(r=>r.cat==='Internal').length} שורות</div>
+        </button>
+        <button onClick={() => toggle('net-external')} className={'kpi-card' + (isActive('net-external') ? ' active' : '')}>
+          <div className="kpi-label">לקוחות חיצוניים (נטו)</div>
+          <div className="kpi-value">${fmt(netExternal)}</div>
+          <div className="kpi-sub">{netOrders.filter(r=>r.cat==='External').length} שורות</div>
+        </button>
       </div>
 
       {/* Monthly table */}
