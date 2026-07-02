@@ -1,17 +1,28 @@
 import { supabase } from '../supabaseClient'
 
-const CHUNK = 500
+const CHUNK = 400
 
-async function upsertChunked(table, rows, conflictCol) {
+async function insertChunked(table, rows) {
   for (let i = 0; i < rows.length; i += CHUNK) {
-    const chunk = rows.slice(i, i + CHUNK)
-    const { error } = conflictCol
-      ? await supabase.from(table).upsert(chunk, { onConflict: conflictCol })
-      : await supabase.from(table).insert(chunk)
+    const { error } = await supabase.from(table).insert(rows.slice(i, i + CHUNK))
     if (error) throw new Error(`${table}: ${error.message}`)
   }
 }
 
+async function upsertChunked(table, rows, conflictCol) {
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const { error } = await supabase.from(table).upsert(rows.slice(i, i + CHUNK), { onConflict: conflictCol })
+    if (error) throw new Error(`${table}: ${error.message}`)
+  }
+}
+
+async function clearAndInsert(table, rows) {
+  const { error } = await supabase.from(table).delete().neq('id', 0)
+  if (error) throw new Error(`clear ${table}: ${error.message}`)
+  if (rows.length) await insertChunked(table, rows)
+}
+
+// ─── Upload ───────────────────────────────────────────────────────
 export async function uploadSnapshot(plan, niso, invoices) {
   const planDates = [...new Set(plan.map(r => r.report_date).filter(Boolean))]
   const nisoDates = [...new Set(niso.map(r => r.report_date).filter(Boolean))]
@@ -21,37 +32,26 @@ export async function uploadSnapshot(plan, niso, invoices) {
   if (nisoDates.length) await supabase.from('sales_niso').delete().in('report_date', nisoDates)
   if (invDates.length)  await supabase.from('sales_invoices').delete().in('report_date', invDates)
 
-  await upsertChunked('sales_plan', plan)
-  await upsertChunked('sales_niso', niso)
-  await upsertChunked('sales_invoices', invoices)
+  await insertChunked('sales_plan', plan)
+  await insertChunked('sales_niso', niso)
+  await insertChunked('sales_invoices', invoices)
 }
 
-export async function uploadOpenOrders(data) {
-  await supabase.from('sales_open_orders').delete().neq('id', 0)
-  await upsertChunked('sales_open_orders', data)
-}
-
-export async function uploadCustomersProduction(customers, salesOrders, production, allocation, purchaseOrders) {
+export async function uploadMain({ customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo }) {
   await upsertChunked('sales_customers', customers, 'customer_account')
-
-  await supabase.from('sales_open_orders').delete().neq('id', 0)
-  if (salesOrders && salesOrders.length) await upsertChunked('sales_open_orders', salesOrders)
-
-  await supabase.from('sales_production').delete().neq('id', 0)
-  await supabase.from('sales_allocation').delete().neq('id', 0)
-  await supabase.from('sales_purchase_orders').delete().neq('id', 0)
-
-  await upsertChunked('sales_production', production)
-  await upsertChunked('sales_allocation', allocation)
-  await upsertChunked('sales_purchase_orders', purchaseOrders)
+  await clearAndInsert('sales_open_orders', salesOrders)
+  await clearAndInsert('sales_production', production)
+  await clearAndInsert('sales_allocation', allocation)
+  await clearAndInsert('sales_purchase_orders', purchaseOrders)
+  await clearAndInsert('sales_dr4', dr4)
+  await clearAndInsert('sales_dr5', dr5)
+  await clearAndInsert('sales_invoices_detail', invoicesDetail)
+  await clearAndInsert('sales_bo', bo)
 }
 
-// ─── Read helpers ─────────────────────────────────────────────────
+// ─── Read ─────────────────────────────────────────────────────────
 export async function fetchSnapshotDates() {
-  const { data } = await supabase
-    .from('sales_plan')
-    .select('report_date')
-    .order('report_date', { ascending: false })
+  const { data } = await supabase.from('sales_plan').select('report_date').order('report_date', { ascending: false })
   const seen = new Set()
   return (data || []).map(r => r.report_date).filter(d => { if (seen.has(d)) return false; seen.add(d); return true })
 }
@@ -65,7 +65,7 @@ export async function fetchSnapshotByDate(date) {
   return { plan: p.data || [], niso: n.data || [], invoices: inv.data || [] }
 }
 
-export async function fetchOpenOrders() {
+export async function fetchSalesOrders() {
   const { data } = await supabase.from('sales_open_orders').select('*')
   return data || []
 }
@@ -87,5 +87,25 @@ export async function fetchAllocation() {
 
 export async function fetchPurchaseOrders() {
   const { data } = await supabase.from('sales_purchase_orders').select('*')
+  return data || []
+}
+
+export async function fetchDR4() {
+  const { data } = await supabase.from('sales_dr4').select('*')
+  return data || []
+}
+
+export async function fetchDR5() {
+  const { data } = await supabase.from('sales_dr5').select('*')
+  return data || []
+}
+
+export async function fetchInvoicesDetail() {
+  const { data } = await supabase.from('sales_invoices_detail').select('*').order('invoice_date', { ascending: false })
+  return data || []
+}
+
+export async function fetchBO() {
+  const { data } = await supabase.from('sales_bo').select('*')
   return data || []
 }

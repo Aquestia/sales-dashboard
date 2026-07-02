@@ -1,14 +1,13 @@
 import { useState, useRef } from 'react'
-import { uploadSnapshot, uploadOpenOrders, uploadCustomersProduction } from '../utils/db'
+import { uploadSnapshot, uploadMain } from '../utils/db'
 
 const FILE_TYPES = [
-  { key: 'customers_production', label: 'לקוחות + ייצור + רכש',     hint: 'קובץ check_data.xlsx — לשוניות: Customers / Sales orders / Production / Calculated Allocation / Open Purchase Orders' },
-  { key: 'snapshot',             label: 'דוח מכירות יומי',          hint: 'לשוניות: שורות הזמנה / NISO / דוח חשבוניות' },
-  { key: 'openorders',           label: 'הזמנות פתוחות (מכירות)',   hint: 'קובץ מכירות.xlsx — גיליון Sheet1' },
+  { key: 'main',     label: 'קובץ ראשי (check_data)',  hint: 'לשוניות: Customers / Sales orders / Production / Calculated Allocation / Open Purchase Orders / DR4 / DR5 / Invoices / BO' },
+  { key: 'snapshot', label: 'דוח מכירות יומי',         hint: 'לשוניות: שורות הזמנה / NISO / דוח חשבוניות' },
 ]
 
 export default function FileUpload() {
-  const [fileType, setFileType] = useState('customers_production')
+  const [fileType, setFileType] = useState('main')
   const [messages, setMessages] = useState([])
   const [uploading, setUploading] = useState(false)
   const inputRef = useRef()
@@ -27,16 +26,9 @@ export default function FileUpload() {
     const reader = new FileReader()
     reader.onerror = () => { addMsg('error', 'שגיאה בקריאת הקובץ'); setUploading(false) }
     reader.onload = ev => {
-      addMsg('progress', 'מפעיל Web Worker...')
       const worker = new Worker('/excelWorker.js')
-
-      worker.onerror = (err) => {
-        addMsg('error', 'שגיאה ב-Worker: ' + (err.message || 'לא ידועה — בדוק את קובץ ה-Excel'))
-        setUploading(false)
-        worker.terminate()
-      }
-
-      worker.onmessage = async (me) => {
+      worker.onerror = err => { addMsg('error', 'שגיאה ב-Worker: ' + (err.message || 'לא ידועה')); setUploading(false); worker.terminate() }
+      worker.onmessage = async me => {
         if (me.data.type === 'progress') {
           addMsg('progress', me.data.msg)
         } else if (me.data.type === 'error') {
@@ -48,24 +40,14 @@ export default function FileUpload() {
             addMsg('progress', 'שומר ל-Supabase...')
             if (me.data.fileType === 'snapshot') {
               await uploadSnapshot(me.data.plan, me.data.niso, me.data.invoices)
-              addMsg('success', `✓ הועלו: ${me.data.plan.length} שורות תוכנית, ${me.data.niso.length} NISO, ${me.data.invoices.length} חשבוניות`)
-            } else if (me.data.fileType === 'openorders') {
-              await uploadOpenOrders(me.data.data)
-              addMsg('success', `✓ הועלו ${me.data.data.length} הזמנות פתוחות`)
-            } else if (me.data.fileType === 'customers_production') {
-              await uploadCustomersProduction(
-                me.data.customers,
-                me.data.salesOrders || [],
-                me.data.production,
-                me.data.allocation,
-                me.data.purchaseOrders
-              )
+              addMsg('success', `✓ הועלו: ${me.data.plan.length} תוכנית · ${me.data.niso.length} NISO · ${me.data.invoices.length} חשבוניות`)
+            } else if (me.data.fileType === 'main') {
+              await uploadMain(me.data)
               addMsg('success',
-                `✓ הועלו: ${me.data.customers.length} לקוחות, ` +
-                `${(me.data.salesOrders||[]).length} הזמנות מכירה, ` +
-                `${me.data.production.length} פק"עות, ` +
-                `${me.data.allocation.length} חוסרים, ` +
-                `${me.data.purchaseOrders.length} הזמנות רכש`
+                `✓ הועלו: ${me.data.customers.length} לקוחות · ${me.data.salesOrders.length} הזמנות · ` +
+                `${me.data.production.length} פק"עות · ${me.data.allocation.length} חוסרים · ` +
+                `${me.data.purchaseOrders.length} הזמנות רכש · ${me.data.dr4.length} DR4 · ` +
+                `${me.data.dr5.length} DR5 · ${me.data.invoicesDetail.length} חשבוניות · ${me.data.bo.length} BO`
               )
             }
           } catch (err) {
@@ -76,20 +58,17 @@ export default function FileUpload() {
           if (inputRef.current) inputRef.current.value = ''
         }
       }
-
       worker.postMessage({ buffer: ev.target.result, fileType })
     }
     reader.readAsArrayBuffer(file)
   }
 
-  const selected = FILE_TYPES.find(f => f.key === fileType)
   const lastMsg = messages[messages.length - 1]
 
   return (
-    <div style={{ maxWidth: 580 }}>
+    <div style={{ maxWidth: 600 }}>
       <div style={{ background: 'var(--surface-2)', border: '0.5px solid var(--border)', borderRadius: 12, padding: '1.2rem 1.4rem', marginBottom: '1rem' }}>
         <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 12 }}>העלאת קובץ Excel</div>
-
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
           {FILE_TYPES.map(ft => (
             <button key={ft.key} onClick={() => setFileType(ft.key)}
@@ -101,12 +80,11 @@ export default function FileUpload() {
             </button>
           ))}
         </div>
-
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>{selected?.hint}</div>
-
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+          {FILE_TYPES.find(f => f.key === fileType)?.hint}
+        </div>
         <input ref={inputRef} type="file" accept=".xlsx,.xls" onChange={handleFile}
           disabled={uploading} style={{ display: 'block', marginBottom: 12 }} />
-
         {lastMsg && (
           <div style={{ fontSize: 13, padding: '8px 12px', borderRadius: 'var(--radius)',
             background: lastMsg.type === 'success' ? '#eaf3de' : lastMsg.type === 'error' ? '#fbe9e7' : 'var(--bg-accent)',
@@ -115,15 +93,13 @@ export default function FileUpload() {
           </div>
         )}
       </div>
-
       {messages.length > 1 && (
         <div style={{ background: 'var(--surface-2)', border: '0.5px solid var(--border)', borderRadius: 12, padding: '1rem 1.4rem' }}>
-          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 8, color: 'var(--text-secondary)' }}>לוג פעולות:</div>
+          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 8, color: 'var(--text-secondary)' }}>לוג:</div>
           {messages.map((m, i) => (
             <div key={i} style={{ fontSize: 12, marginBottom: 4,
               color: m.type === 'success' ? '#1a6e3a' : m.type === 'error' ? 'var(--red)' : 'var(--text-secondary)' }}>
-              <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>{m.time}</span>
-              {m.msg}
+              <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>{m.time}</span>{m.msg}
             </div>
           ))}
         </div>
