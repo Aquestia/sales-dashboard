@@ -308,16 +308,20 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
                                 ...(dr4ByParent[mainPrd] || []).filter(d=>!DONE.includes(d.status)),
                                 ...(dr5ByParent[mainPrd] || []).filter(d=>!DONE.includes(d.status))
                               ]
+                              const subOrdersWithShortage = subOrders.filter(sub => {
+                                const subAlloc = (allocByNumber[sub.production_order] || []).filter(a=>a.missing_qty>0)
+                                return subAlloc.length > 0
+                              })
                               return (
                                 <div style={{ marginBottom: purchItems.length ? 12 : 0 }}>
                                   <div style={{ fontSize:12, fontWeight:600, color:'#6B21A8', marginBottom:4 }}>
                                     🟣 חוסרי ייצור — הזמנה {r.doc} · פק"ע ראשית: {mainPrd||'—'}
                                   </div>
-                                  {subOrders.length === 0 ? (
+                                  {subOrdersWithShortage.length === 0 ? (
                                     <div style={{fontSize:11,color:'#888',padding:'4px 8px'}}>
-                                      אין תת-פק"עות פעילות ב-DR4/DR5 תחת {mainPrd}
+                                      אין תת-פק"עות עם חוסרים פעילים
                                     </div>
-                                  ) : subOrders.map((sub, si) => {
+                                  ) : subOrdersWithShortage.map((sub, si) => {
                                     const subAlloc = (allocByNumber[sub.production_order] || []).filter(a=>a.missing_qty>0)
                                     return (
                                       <div key={si} style={{marginBottom:8,padding:'6px 8px',background: sub.type==='עב"ש'?'#fef3c7':'#ede9fe',borderRadius:6,border:`0.5px solid ${sub.type==='עב"ש'?'#d97706':'#7c3aed'}`}}>
