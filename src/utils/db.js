@@ -121,9 +121,17 @@ export async function fetchInvoicesDetail() { return fetchAll('sales_invoices_de
 
 
 export async function createSalesFile(filename) {
+  // Try to extract date from filename (e.g. "02.07.2026.xlsx" → "2026-07-02")
+  let batchDate = new Date().toISOString().split('T')[0]
+  const match = filename.match(/(\d{2})[.\-_](\d{2})[.\-_](\d{4})/)
+  if (match) {
+    const [, dd, mm, yyyy] = match
+    batchDate = `${yyyy}-${mm}-${dd}`
+  }
+
   const { data, error } = await supabase
     .from('sales_files')
-    .insert({ filename, batch_date: new Date().toISOString().split('T')[0] })
+    .insert({ filename, batch_date: batchDate })
     .select()
     .single()
   if (error) throw new Error('sales_files: ' + error.message)

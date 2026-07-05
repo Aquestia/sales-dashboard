@@ -199,10 +199,10 @@ function StatusTable({ mk, aData, bData, aFile, bFile, color, productionMapA, pr
             <tr>
               <th rowSpan={2} style={{ ...HS, textAlign:'right', borderRight:'1px solid #ccc' }}>סטטוס</th>
               <th colSpan={4} style={{ ...HS, background:'#eaf0f8', textAlign:'center', borderRight:'2px solid #bbb' }}>
-                📅 {aFile?.batch_date||'—'} <span style={{fontSize:10,fontWeight:400,opacity:0.8}}>(עדכני)</span>
+                📅 {aFile?.batch_date||'—'} <span style={{fontSize:10,fontWeight:400,opacity:0.75}}>· {aFile?.filename} (עדכני)</span>
               </th>
               <th colSpan={4} style={{ ...HS, background:'#f5f0e8', textAlign:'center', borderRight:'2px solid #bbb' }}>
-                📅 {bFile?.batch_date||'—'} <span style={{fontSize:10,fontWeight:400,opacity:0.8}}>(קודם)</span>
+                📅 {bFile?.batch_date||'—'} <span style={{fontSize:10,fontWeight:400,opacity:0.75}}>· {bFile?.filename} (קודם)</span>
               </th>
               <th rowSpan={2} style={{ ...HS, background:'#eef5ea', textAlign:'center' }}>שינוי</th>
             </tr>
@@ -287,7 +287,9 @@ export default function MonthlyStatusView({ production, dr4, dr5 }) {
     const fileB = allFiles.find(f=>f.id===idB)
 
     // Sort: newer = left (index 0), older = right (index 1)
-    const [newerFile, olderFile] = fileA.batch_date >= fileB.batch_date
+    // Primary sort by batch_date, secondary by uploaded_at
+    const sortKey = f => f.batch_date + '_' + f.uploaded_at
+    const [newerFile, olderFile] = sortKey(fileA) >= sortKey(fileB)
       ? [fileA, fileB] : [fileB, fileA]
 
     const [newOrders, oldOrders] = await Promise.all([
