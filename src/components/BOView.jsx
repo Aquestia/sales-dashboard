@@ -144,7 +144,7 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [], procu
 
             {/* Customer accordion */}
             {custGroups.map((grp, gi) => (
-              <CustomerGroup key={grp.customer} grp={grp} cols={DETAIL_COLS} allocation={allocation} purchaseOrders={purchaseOrders} procurementNotes={procurementNotes} production={production} dr4={dr4} dr5={dr5} />
+              <CustomerGroup key={grp.customer} grp={grp} cols={DETAIL_COLS} allocation={allocation} purchaseOrders={purchaseOrders} procurementNotes={procurementNotes} production={production} dr4={dr4} dr5={dr5} salesOrders={salesOrders} />
             ))}
           </div>
         )
@@ -154,11 +154,18 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [], procu
   )
 }
 
-function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes, production, dr4, dr5 }) {
+function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes, production, dr4, dr5, salesOrders = [] }) {
   const [open, setOpen] = useState(false)
   const [openShortage, setOpenShortage] = useState(null)
   const [notes, setNotes] = useState(procurementNotes)
   const [viewNote, setViewNote] = useState(null)
+
+  // Lookup confirmed_ship_date from sales orders by sales_order number
+  const soConfirmedDate = useMemo(() => {
+    const m = {}
+    salesOrders.forEach(o => { m[o.sales_order] = o.confirmed_ship_date })
+    return m
+  }, [salesOrders])
 
   function getShortages(doc) {
     return allocation.filter(a =>
@@ -295,7 +302,7 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
                                           <td style={CS}>{s.item_number}</td>
                                           <td style={CS}>{s.product_name}</td>
                                           <td style={{ ...CS, fontWeight:600 }}>{Math.round(s.missing_qty)}</td>
-                                          <td style={CS}>{s.requested_delivery_date||'—'}</td>
+                                          <td style={CS}>{soConfirmedDate[r.doc] || s.requested_delivery_date||'—'}</td>
                                           <td style={{ ...CS, fontWeight:600, color: ap?.type==='עב"ש'?'#92400e':'#1e40af' }}>{ap?.type||'—'}</td>
                                           <td style={CS}>{ap?.production_order||'—'}</td>
                                           <td style={CS}>{ap?.status||'—'}</td>
@@ -324,13 +331,14 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
                                     {purchItems.map((s,si) => {
                                       const po = bestPO(s.item_number)
                                       const eta = po?(po.confirmed_receipt_date||po.requested_receipt_date||''):''
-                                      const late = s.requested_delivery_date && eta && eta > s.requested_delivery_date
+                                      const needDate = soConfirmedDate[r.doc] || s.requested_delivery_date || ''
+                                      const late = needDate && eta && eta > needDate
                                       return (
                                         <tr key={si} style={{ background: po?'#eaf3de':'#fbe9e7' }}>
                                           <td style={CS}>{s.item_number}</td>
                                           <td style={CS}>{s.product_name}</td>
                                           <td style={{ ...CS, fontWeight:600 }}>{Math.round(s.missing_qty)}</td>
-                                          <td style={CS}>{s.requested_delivery_date||'—'}</td>
+                                          <td style={CS}>{soConfirmedDate[r.doc] || s.requested_delivery_date||'—'}</td>
                                           <td style={CS}>{po?.purchase_order||'—'}</td>
                                           <td style={CS}>{po?.vendor_name||'—'}</td>
                                           <td style={CS}>{eta||'—'}</td>
