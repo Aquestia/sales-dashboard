@@ -1,10 +1,17 @@
 // Pool → assembly category name
 const POOL_ASSEMBLY = {
-  DR6MT: 'הרכבת מתכת',
-  DR6PL: 'הרכבת פלסטיק',
-  DR6NV: 'הרכבת נווטים',
-  DR6MF: 'מפעלון',
-  DR6MM: 'מדי מים',
+  DR6MT:     'הרכבת מתכת',
+  DR6PL:     'הרכבת פלסטיק',
+  DR6NV:     'הרכבת נווטים',
+  DR6MF:     'מפעלון',
+  DR6MM:     'מדי מים',
+  DRKBM:     'קבלני משנה',
+  DR8AR:     'אריזה',
+  DR8PLT:    'לוחיות',
+  DRFUNC:    'בדיקות פונקציונליות',
+  DRFUNC_6NV:'בדיקות פונקציונליות',
+  DRFUNC_MT: 'בדיקות פונקציונליות',
+  DRFUNC_PL: 'בדיקות פונקציונליות',
 }
 
 const DONE_STATUSES = ['Ended', 'Reported as finished']
