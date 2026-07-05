@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { fmt } from '../utils/helpers'
-import { fetchSalesFiles, fetchSalesOrdersByFileId } from '../utils/db'
+import { fetchSalesFiles, fetchSalesOrdersByFileId, fetchInvoicesDetail } from '../utils/db'
 
 const ORDER_COLS = [
   ['sales_order','הזמנה'],
@@ -30,10 +30,11 @@ function monthLabel(key) {
   return `${months[parseInt(m) - 1]} ${y}`
 }
 
-export default function SalesDashboard({ invoices = [] }) {
+export default function SalesDashboard() {
   const [files, setFiles] = useState([])
   const [selectedFileId, setSelectedFileId] = useState(null)
   const [orders, setOrders] = useState([])
+  const [fileInvoices, setFileInvoices] = useState([])
   const [sortCol, setSortCol] = useState('confirmed_ship_date')
   const [sortDir, setSortDir] = useState('asc')
   const [loadingFile, setLoadingFile] = useState(true)
@@ -52,8 +53,12 @@ export default function SalesDashboard({ invoices = [] }) {
   useEffect(() => {
     if (!selectedFileId) return
     setLoadingFile(true)
-    fetchSalesOrdersByFileId(selectedFileId).then(rows => {
+    Promise.all([
+      fetchSalesOrdersByFileId(selectedFileId),
+      fetchInvoicesDetail(selectedFileId)
+    ]).then(([rows, inv]) => {
       setOrders(rows)
+      setFileInvoices(inv)
       setLoadingFile(false)
     })
   }, [selectedFileId])
@@ -203,10 +208,10 @@ export default function SalesDashboard({ invoices = [] }) {
       </div>
 
       {/* Row 3: Invoices */}
-      {invoices.length > 0 && (() => {
-        const invTotal    = invoices.reduce((s, r) => s + (r.invoice_amount || 0), 0)
-        const invInternal = invoices.filter(r => r.cat === 'Internal').reduce((s, r) => s + (r.invoice_amount || 0), 0)
-        const invExternal = invoices.filter(r => r.cat === 'External').reduce((s, r) => s + (r.invoice_amount || 0), 0)
+      {fileInvoices.length > 0 && (() => {
+        const invTotal    = fileInvoices.reduce((s, r) => s + (r.invoice_amount || 0), 0)
+        const invInternal = fileInvoices.filter(r => r.cat === 'Internal').reduce((s, r) => s + (r.invoice_amount || 0), 0)
+        const invExternal = fileInvoices.filter(r => r.cat === 'External').reduce((s, r) => s + (r.invoice_amount || 0), 0)
         return (
           <div style={{ marginBottom: '1.5rem' }}>
             <div style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
@@ -216,17 +221,17 @@ export default function SalesDashboard({ invoices = [] }) {
               <div className="kpi-card" style={{ cursor:'default', borderTop:'3px solid #2D7D46' }}>
                 <div className="kpi-label">סה"כ חשבוניות</div>
                 <div className="kpi-value" style={{ color:'#2D7D46' }}>${fmt(invTotal)}</div>
-                <div className="kpi-sub">{invoices.length} חשבוניות</div>
+                <div className="kpi-sub">{fileInvoices.length} חשבוניות</div>
               </div>
               <div className="kpi-card" style={{ cursor:'default', borderTop:'3px solid #2D7D46' }}>
                 <div className="kpi-label">לקוחות פנימיים</div>
                 <div className="kpi-value">${fmt(invInternal)}</div>
-                <div className="kpi-sub">{invoices.filter(r=>r.cat==='Internal').length} חשבוניות</div>
+                <div className="kpi-sub">{fileInvoices.filter(r=>r.cat==='Internal').length} חשבוניות</div>
               </div>
               <div className="kpi-card" style={{ cursor:'default', borderTop:'3px solid #2D7D46' }}>
                 <div className="kpi-label">לקוחות חיצוניים</div>
                 <div className="kpi-value">${fmt(invExternal)}</div>
-                <div className="kpi-sub">{invoices.filter(r=>r.cat==='External').length} חשבוניות</div>
+                <div className="kpi-sub">{fileInvoices.filter(r=>r.cat==='External').length} חשבוניות</div>
               </div>
             </div>
           </div>

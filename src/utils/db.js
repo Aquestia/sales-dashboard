@@ -53,7 +53,10 @@ export async function uploadMain({ filename, customers, salesOrders, production,
   await clearAndInsert('sales_purchase_orders', purchaseOrders)
   await clearAndInsert('sales_dr4', dr4)
   await clearAndInsert('sales_dr5', dr5)
-  await clearAndInsert('sales_invoices_detail', invoicesDetail)
+  // Store invoices with file_id (like orders)
+  const invoicesWithFileId = invoicesDetail.map(r => ({ ...r, file_id: fileId }))
+  await supabase.from('sales_invoices_detail').delete().eq('file_id', fileId)
+  if (invoicesWithFileId.length) await insertChunked('sales_invoices_detail', invoicesWithFileId)
   await clearAndInsert('sales_bo', bo)
 }
 
@@ -116,7 +119,21 @@ export async function fetchDR4() { return fetchAll('sales_dr4') }
 
 export async function fetchDR5() { return fetchAll('sales_dr5') }
 
-export async function fetchInvoicesDetail() { return fetchAll('sales_invoices_detail') }
+export async function fetchInvoicesDetail(fileId = null) {
+  if (fileId) {
+    let all = [], from = 0, size = 1000
+    while (true) {
+      const { data, error } = await supabase.from('sales_invoices_detail').select('*').eq('file_id', fileId).range(from, from+size-1)
+      if (error) throw new Error(error.message)
+      if (!data || data.length === 0) break
+      all = all.concat(data)
+      if (data.length < size) break
+      from += size
+    }
+    return all
+  }
+  return fetchAll('sales_invoices_detail')
+}
 
 
 export async function createSalesFile(filename) {
