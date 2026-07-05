@@ -137,7 +137,7 @@ function DetailPanel({ status, monthKey: mk, rows, productionMap, fileLabel, onC
 }
 
 function ChangeCell({ aAmt, bAmt, style={} }) {
-  const diff = bAmt - aAmt
+  const diff = aAmt - bAmt  // עדכני פחות קודם
   if (Math.abs(diff) < 0.01) return <td style={style}><span style={{color:'#999',fontSize:13}}>↔</span></td>
   const up = diff > 0
   return (
