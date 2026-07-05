@@ -150,29 +150,6 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [], procu
         )
       })()}
 
-      {/* Note view modal */}
-      {viewNote && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
-          onClick={()=>setViewNote(null)}>
-          <div onClick={e=>e.stopPropagation()}
-            style={{background:'#fff',borderRadius:12,padding:'1.5rem 1.75rem',minWidth:340,maxWidth:500,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-              <div style={{fontWeight:600,fontSize:15}}>הערת רכש</div>
-              <div style={{fontSize:11,color:'#888'}}>מק"ט: {viewNote.itemNumber}</div>
-            </div>
-            <div style={{background:'#f8f8f5',borderRadius:8,padding:'12px 14px',fontSize:13,lineHeight:1.7,minHeight:60,
-              color:viewNote.note?'var(--text-main)':'#aaa'}}>
-              {viewNote.note || 'אין הערה לפריט זה'}
-            </div>
-            <div style={{marginTop:16,textAlign:'left'}}>
-              <button onClick={()=>setViewNote(null)}
-                style={{padding:'8px 20px',borderRadius:8,background:'var(--blue-dark)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600,fontSize:13}}>
-                סגור
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -385,6 +362,30 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Note view modal */}
+      {viewNote && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+          onClick={()=>setViewNote(null)}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{background:'#fff',borderRadius:12,padding:'1.5rem 1.75rem',minWidth:340,maxWidth:500,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+              <div style={{fontWeight:600,fontSize:15}}>הערת רכש</div>
+              <div style={{fontSize:11,color:'#888'}}>מק"ט: {viewNote.itemNumber}</div>
+            </div>
+            <div style={{background:'#f8f8f5',borderRadius:8,padding:'12px 14px',fontSize:13,lineHeight:1.7,minHeight:60,
+              color:viewNote.note?'var(--text-main)':'#aaa'}}>
+              {viewNote.note || 'אין הערה לפריט זה'}
+            </div>
+            <div style={{marginTop:16,textAlign:'left'}}>
+              <button onClick={()=>setViewNote(null)}
+                style={{padding:'8px 20px',borderRadius:8,background:'var(--blue-dark)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600,fontSize:13}}>
+                סגור
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
