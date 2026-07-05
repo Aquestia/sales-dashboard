@@ -41,25 +41,26 @@ function buildMonthData(orders, production, dr4, dr5) {
   return { byMonth, productionMap }
 }
 
-// ── Production columns
-const PROD_COLS = [
-  ['production','פק"ע'],['reference_number','הזמנה'],['customer_name','לקוח'],
-  ['item_number','מק"ט'],['name','תיאור'],['quantity','כמות'],['status','סטטוס'],
-  ['planning_priority','שבוע'],['pool','מאגר'],['shortage_exist','מחסור'],
-  ['components_in_station','חומרים בתחנה'],['start_date','תאריך התחלה']
-]
-// ── Sales order columns
+// ── Sales order columns (always shown)
 const SO_COLS = [
   ['sales_order','הזמנה'],['line_number','שורה'],['customer_account','לקוח'],
   ['customer_name','שם לקוח'],['item_number','מק"ט'],['item_group','קבוצה'],
-  ['status','סטטוס'],['mode_of_delivery','משלוח'],['confirmed_ship_date','ת. אספקה'],
-  ['ordered_quantity','כמות'],['deliver_remainder','יתרה'],['remaining_amount','סכום $']
+  ['status','סטטוס הזמנה'],['mode_of_delivery','משלוח'],['confirmed_ship_date','ת. אספקה'],
+  ['ordered_quantity','כמות'],['deliver_remainder','יתרה'],['remaining_amount','סכום $'],
+  ['_prod_info','מידע פק"ע']
 ]
 
-function exportToExcel(rows, cols, filename) {
+function exportToExcel(rows, cols, filename, productionMap) {
   const data = rows.map(r => {
     const obj = {}
-    cols.forEach(([k,l]) => { obj[l] = r[k] ?? '' })
+    cols.filter(([k]) => k !== '_prod_info').forEach(([k,l]) => { obj[l] = r[k] ?? '' })
+    // Add prod info
+    const prod = productionMap?.[r.production_number]
+    if (prod) {
+      obj['סטטוס פק"ע'] = prod.status || ''
+      obj['שבוע'] = prod.planning_priority === 188 ? 'לא משובץ' : `שבוע ${prod.planning_priority}`
+      obj['מאגר'] = prod.pool || ''
+    }
     return obj
   })
   const ws = XLSX.utils.json_to_sheet(data)
@@ -69,19 +70,10 @@ function exportToExcel(rows, cols, filename) {
 }
 
 function DetailPanel({ status, monthKey: mk, rows, productionMap, fileLabel, onClose }) {
-  const hasProd = !NO_PROD_STATUSES.includes(status)
-  const cols = hasProd ? PROD_COLS : SO_COLS
-
-  // Build display rows
-  const displayRows = hasProd
-    ? rows.map(o => productionMap[o.production_number]).filter(Boolean)
-    : rows
-
-  const uniqueRows = hasProd
-    ? [...new Map(displayRows.map(p => [p.production, p])).values()]
-    : displayRows
-
   const CS = { padding:'5px 8px', fontSize:11, borderBottom:'0.5px solid #e8e8e2', whiteSpace:'nowrap', textAlign:'right' }
+
+  const totalAmt = rows.reduce((s, r) => s + (r.remaining_amount || 0), 0)
+  const sorted = [...rows].sort((a, b) => (b.remaining_amount||0) - (a.remaining_amount||0))
 
   return (
     <div style={{ border:'0.5px solid var(--border-card)', borderRadius:10, padding:'1rem 1.2rem', marginTop:16, background:'#fff' }}>
@@ -89,14 +81,11 @@ function DetailPanel({ status, monthKey: mk, rows, productionMap, fileLabel, onC
         <div>
           <span style={{ fontWeight:600, fontSize:14 }}>{shortStatus(status)} · {monthLabel(mk)}</span>
           <span style={{ fontSize:12, color:'var(--text-muted)', marginRight:10 }}>
-            {fileLabel} · {uniqueRows.length} שורות
-          </span>
-          <span style={{ fontSize:11, color:'var(--text-muted)' }}>
-            ({hasProd ? 'נתוני פק"עות מ-Production' : 'נתוני הזמנות מ-Sales Orders'})
+            {fileLabel} · {rows.length} שורות · ${fmt(totalAmt)}
           </span>
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <button onClick={() => exportToExcel(uniqueRows, cols, `${shortStatus(status)}_${mk}`)}
+          <button onClick={() => exportToExcel(sorted, SO_COLS, `${shortStatus(status)}_${mk}`, productionMap)}
             style={{ padding:'6px 14px', borderRadius:'var(--radius)', border:'0.5px solid var(--border-card)',
               background:'#f0f8ec', color:'#2a7a1a', fontWeight:600, fontSize:12, cursor:'pointer' }}>
             ⬇ ייצוא Excel
@@ -111,25 +100,43 @@ function DetailPanel({ status, monthKey: mk, rows, productionMap, fileLabel, onC
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
           <thead>
             <tr style={{ background:'#f5f5f0' }}>
-              {cols.map(([k,l]) => (
-                <th key={k} style={{ ...CS, fontWeight:600, color:'#555', borderBottom:'1px solid #ddd' }}>{l}</th>
+              {SO_COLS.map(([k,l]) => (
+                <th key={k} style={{ ...CS, fontWeight:600, color:'#555', borderBottom:'1px solid #ddd' }}>
+                  {k === '_prod_info' ? 'פק"ע · שבוע · מאגר' : l}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {uniqueRows.map((r, i) => (
-              <tr key={i} style={{ background: i%2===0?'#fafaf8':'#fff' }}>
-                {cols.map(([k]) => (
-                  <td key={k} style={CS}>
-                    {k === 'remaining_amount' ? `$${fmt(r[k]||0)}`
-                      : k === 'planning_priority' ? (r[k]===188||r[k]===0?'לא משובץ':`שבוע ${r[k]}`)
-                      : k === 'shortage_exist' ? (r[k]==='Yes'?'⚠ כן':'')
-                      : (r[k] ?? '')}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {sorted.map((r, i) => {
+              const prod = productionMap?.[r.production_number]
+              const isDone = prod && ['Ended','Reported as finished'].includes(prod.status)
+              return (
+                <tr key={i} style={{ background: isDone ? '#eaf3de' : i%2===0?'#fafaf8':'#fff' }}>
+                  {SO_COLS.map(([k]) => (
+                    <td key={k} style={CS}>
+                      {k === 'remaining_amount' ? `$${fmt(r[k]||0)}`
+                        : k === '_prod_info' ? (
+                          prod
+                            ? <span style={{ fontSize:10 }}>
+                                {prod.production} · {prod.planning_priority===188||!prod.planning_priority?'לא משובץ':`שבוע ${prod.planning_priority}`} · {prod.pool||'—'}
+                              </span>
+                            : <span style={{ color:'#ccc' }}>—</span>
+                        )
+                        : (r[k] ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
           </tbody>
+          <tfoot>
+            <tr style={{ fontWeight:700, background:'#e8edf5' }}>
+              <td colSpan={11} style={{ ...CS, textAlign:'left' }}>סה"כ</td>
+              <td style={{ ...CS, fontWeight:700 }}>${fmt(totalAmt)}</td>
+              <td style={CS}></td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
