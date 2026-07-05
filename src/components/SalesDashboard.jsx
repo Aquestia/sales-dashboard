@@ -9,12 +9,12 @@ const ORDER_COLS = [
   ['customer_name','שם לקוח'],
   ['item_number','מק"ט'],
   ['item_group','קב. פריט'],
+  ['production_number','פק"ע'],
   ['status','סטטוס'],
   ['mode_of_delivery','משלוח'],
   ['confirmed_ship_date','תאריך אספקה מאושר'],
   ['requested_ship_date','תאריך מבוקש'],
   ['ordered_quantity','כמות'],
-  ['deliver_remainder','יתרה'],
   ['remaining_amount','סכום $'],
 ]
 
@@ -294,7 +294,9 @@ export default function SalesDashboard() {
                   <tr key={i} style={{ background: i % 2 === 0 ? 'var(--surface-1)' : 'var(--surface-2)' }}>
                     {ORDER_COLS.map(([k]) => (
                       <td key={k} style={{ padding: '6px 8px', borderBottom: '0.5px solid var(--border)', whiteSpace: 'nowrap' }}>
-                        {k === 'remaining_amount' ? '$' + fmt(r[k] || 0) : (r[k] ?? '')}
+                        {k === 'remaining_amount' ? '$' + fmt(r[k] || 0)
+                          : k === 'production_number' ? (r[k] || '—')
+                          : (r[k] ?? '')}
                       </td>
                     ))}
                   </tr>
