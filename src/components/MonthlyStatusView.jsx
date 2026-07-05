@@ -18,10 +18,14 @@ const shortStatus = s => s.replace('בהרכבת הרכבת ','הרכבת ').rep
 // statuses that have no production order
 const NO_PROD_STATUSES = ['מלאי תוצ"ג', 'חלקי חילוף']
 
+const EXCLUDED_SALE_TYPES = new Set(['30', '40', '50'])
+
 function buildMonthData(orders, production, dr4, dr5) {
   const { productionMap, dr4ByParent, dr5ByParent } = buildLookups(production, dr4, dr5)
   const byMonth = {}
-  orders.forEach(o => {
+  // Exclude DROP ORDER (30), CONSIGNMENT (40), AQUESTIA INDIA (50)
+  const filtered = orders.filter(o => !EXCLUDED_SALE_TYPES.has(String(o.sale_type_code || '').trim()))
+  filtered.forEach(o => {
     const mk = monthKey(o.confirmed_ship_date)
     if (!mk) return
     const st = classifyOrder(o, productionMap, dr4ByParent, dr5ByParent)
