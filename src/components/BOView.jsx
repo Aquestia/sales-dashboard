@@ -21,7 +21,7 @@ const DETAIL_COLS = [
   ['open_sales_amount','שווי פתוח'], ['past_due','פיגור $'], ['sales_status','סטטוס']
 ]
 
-export default function BOView({ bo, allocation = [], purchaseOrders = [], procurementNotes = {}, production = [] }) {
+export default function BOView({ bo, allocation = [], purchaseOrders = [], procurementNotes = {}, production = [], salesOrders = [], dr4 = [], dr5 = [] }) {
   const [selectedMonth, setSelectedMonth] = useState(null)
 
   const totalBO    = bo.reduce((s, r) => s + (r.back_orders_amount || 0), 0)
@@ -145,7 +145,7 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [], procu
 
             {/* Customer accordion */}
             {custGroups.map((grp, gi) => (
-              <CustomerGroup key={grp.customer} grp={grp} cols={DETAIL_COLS} allocation={allocation} purchaseOrders={purchaseOrders} procurementNotes={procurementNotes} production={production} />
+              <CustomerGroup key={grp.customer} grp={grp} cols={DETAIL_COLS} allocation={allocation} purchaseOrders={purchaseOrders} procurementNotes={procurementNotes} production={production} dr4={dr4} dr5={dr5} />
             ))}
           </div>
         )
@@ -155,7 +155,7 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [], procu
   )
 }
 
-function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes, production }) {
+function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes, production, dr4, dr5 }) {
   const [open, setOpen] = useState(false)
   const [openShortage, setOpenShortage] = useState(null)
   const [notes, setNotes] = useState(procurementNotes)
@@ -184,15 +184,24 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
     )
   }
 
-  // Build production lookup by item_number
-  const prodByItem = useMemo(() => {
+  // Build DR4 (עב"ש) and DR5 (צבע) lookup by item_number
+  const dr4ByItem = useMemo(() => {
     const m = {}
-    production.forEach(p => {
-      if (!m[p.item_number]) m[p.item_number] = []
-      m[p.item_number].push(p)
+    dr4.forEach(d => {
+      if (!m[d.item_number]) m[d.item_number] = []
+      m[d.item_number].push({ ...d, type: 'עב"ש' })
     })
     return m
-  }, [production])
+  }, [dr4])
+
+  const dr5ByItem = useMemo(() => {
+    const m = {}
+    dr5.forEach(d => {
+      if (!m[d.item_number]) m[d.item_number] = []
+      m[d.item_number].push({ ...d, type: 'צבע' })
+    })
+    return m
+  }, [dr5])
 
   function bestPO(itemNumber) {
     const candidates = purchaseOrders.filter(p =>
@@ -285,25 +294,29 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
                                 <div style={{ fontSize:12, fontWeight:600, color:'#6B21A8', marginBottom:6 }}>🟣 חוסרי ייצור — הזמנה {r.doc}</div>
                                 <table style={{ fontSize:11, width:'100%', borderCollapse:'collapse' }}>
                                   <thead><tr>
-                                    {['מק"ט חסר','שם פריט','כמות חסרה','תאריך נדרש','פק"ע','סטטוס','שבוע','מאגר','מחסור בפק"ע'].map(h=>(
+                                    {['מק"ט חסר','שם פריט','כמות חסרה','תאריך נדרש','סוג','פק"ע','סטטוס','תאריך ייצור','חומר ראשי','כמות זמינה'].map(h=>(
                                       <th key={h} style={{ ...CS, color:'var(--text-muted)', borderBottom:'0.5px solid var(--border-tbl)', fontWeight:600 }}>{h}</th>
                                     ))}
                                   </tr></thead>
                                   <tbody>
                                     {prodItems.map((s,si) => {
-                                      const prods = prodByItem[s.item_number] || []
-                                      const ap = prods.find(p=>!['Ended','Reported as finished'].includes(p.status)) || prods[0]
+                                      // Look in DR4 (עב"ש) and DR5 (צבע) by item_number
+                                      const dr4Rows = (dr4ByItem[s.item_number] || []).filter(d => !['Ended','Reported as finished'].includes(d.status))
+                                      const dr5Rows = (dr5ByItem[s.item_number] || []).filter(d => !['Ended','Reported as finished'].includes(d.status))
+                                      const subRows = [...dr4Rows, ...dr5Rows]
+                                      const ap = subRows[0] || null
                                       return (
                                         <tr key={si} style={{ background: ap ? '#f3e8ff' : '#fbe9e7' }}>
                                           <td style={CS}>{s.item_number}</td>
                                           <td style={CS}>{s.product_name}</td>
                                           <td style={{ ...CS, fontWeight:600 }}>{Math.round(s.missing_qty)}</td>
                                           <td style={CS}>{s.requested_delivery_date||'—'}</td>
-                                          <td style={CS}>{ap?.production||'—'}</td>
+                                          <td style={{ ...CS, fontWeight:600, color: ap?.type==='עב"ש'?'#92400e':'#1e40af' }}>{ap?.type||'—'}</td>
+                                          <td style={CS}>{ap?.production_order||'—'}</td>
                                           <td style={CS}>{ap?.status||'—'}</td>
-                                          <td style={CS}>{ap?.planning_priority===188||!ap?.planning_priority?'לא משובץ':`שבוע ${ap?.planning_priority}`}</td>
-                                          <td style={CS}>{ap?.pool||'—'}</td>
-                                          <td style={CS}>{ap?.shortage_exist==='Yes'?<span style={{color:'var(--red-dark)',fontWeight:600}}>⚠ כן</span>:<span style={{color:'var(--green-dark)'}}>לא</span>}</td>
+                                          <td style={CS}>{!ap?.production_date?'לא משובץ':ap.production_date}</td>
+                                          <td style={CS}>{ap?.main_component||'—'}</td>
+                                          <td style={CS}>{ap?.main_component_available!=null?ap.main_component_available:'—'}</td>
                                         </tr>
                                       )
                                     })}
