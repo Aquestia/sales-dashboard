@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { fmt } from '../utils/helpers'
+import { fetchSalesFiles, fetchSalesOrdersByFileId } from '../utils/db'
 
 const ORDER_COLS = [
   ['sales_order','הזמנה'],
@@ -29,7 +30,32 @@ function monthLabel(key) {
   return `${months[parseInt(m) - 1]} ${y}`
 }
 
-export default function SalesDashboard({ orders }) {
+export default function SalesDashboard() {
+  const [files, setFiles] = useState([])
+  const [selectedFileId, setSelectedFileId] = useState(null)
+  const [orders, setOrders] = useState([])
+  const [loadingFile, setLoadingFile] = useState(true)
+
+  useEffect(() => {
+    fetchSalesFiles().then(fs => {
+      setFiles(fs)
+      if (fs.length > 0) {
+        setSelectedFileId(fs[0].id)
+      } else {
+        setLoadingFile(false)
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!selectedFileId) return
+    setLoadingFile(true)
+    fetchSalesOrdersByFileId(selectedFileId).then(rows => {
+      setOrders(rows)
+      setLoadingFile(false)
+    })
+  }, [selectedFileId])
+
   const [selected, setSelected] = useState(null) // { type: 'all'|'internal'|'external'|'month', key?, cat? }
 
   const dropOrders   = orders.filter(r => String(r.sale_type_code).trim() === '30')
@@ -95,6 +121,24 @@ export default function SalesDashboard({ orders }) {
   }  return (
     <div>
       <h2 className="page-heading">דוח מכירות — הזמנות פתוחות</h2>
+
+      {/* File selector */}
+      {files.length > 0 && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:'1.25rem', flexWrap:'wrap' }}>
+          <span style={{ fontSize:13, color:'var(--text-secondary)', whiteSpace:'nowrap' }}>קובץ פעיל:</span>
+          {files.map(f => (
+            <button key={f.id} onClick={() => setSelectedFileId(f.id)}
+              style={{ padding:'6px 14px', borderRadius:'var(--radius)', fontSize:12,
+                border:'0.5px solid '+(selectedFileId===f.id?'var(--blue-dark)':'var(--border-card)'),
+                background:selectedFileId===f.id?'var(--blue-bg)':'var(--bg-row)',
+                color:selectedFileId===f.id?'var(--blue-dark)':'var(--text-main)',
+                cursor:'pointer', fontWeight:selectedFileId===f.id?600:400 }}>
+              {f.batch_date} · {f.filename}
+            </button>
+          ))}
+          {loadingFile && <span style={{ fontSize:12, color:'var(--text-muted)' }}>טוען...</span>}
+        </div>
+      )}
 
       {/* Row 1: Total + exclusions */}
       <div className="kpi-row" style={{ marginBottom: '0.75rem' }}>

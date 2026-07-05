@@ -73,19 +73,18 @@ export async function fetchSnapshotByDate(date) {
   return { plan: p.data || [], niso: n.data || [], invoices: inv.data || [] }
 }
 
-export async function fetchSalesOrders() {
-  let all = []
-  let from = 0
-  const size = 1000
-  while (true) {
-    const { data, error } = await supabase.from('sales_open_orders').select('*').range(from, from + size - 1)
-    if (error) throw new Error(error.message)
-    if (!data || data.length === 0) break
-    all = all.concat(data)
-    if (data.length < size) break
-    from += size
+export async function fetchSalesOrders(fileId = null) {
+  let targetFileId = fileId
+  if (!targetFileId) {
+    const { data: files } = await supabase
+      .from('sales_files')
+      .select('id')
+      .order('uploaded_at', { ascending: false })
+      .limit(1)
+    if (!files || files.length === 0) return []
+    targetFileId = files[0].id
   }
-  return all
+  return fetchSalesOrdersByFileId(targetFileId)
 }
 
 export async function fetchCustomers() {
