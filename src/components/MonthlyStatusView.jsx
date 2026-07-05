@@ -163,31 +163,28 @@ function StatusTable({ mk, aData, bData, aFile, bFile, color, productionMapA, pr
   }
   const tA=sum(aData), tB=sum(bData)
 
-  function clickable(amt, key) {
-    if (!amt) return { style: CS }
-    const isActive = activeKey === key
-    return {
-      style: { ...CS, cursor:'pointer', background: isActive ? '#d0e8f8' : undefined, fontWeight: isActive ? 700 : undefined },
-      onClick: () => onCellClick(key)
-    }
-  }
-
-  function AmtCell({ amt, rows, ie, file, colKey }) {
+  function AmtCell({ amt, colKey, ie, file }) {
     const key = `${mk}|${colKey}|${ie}|${file}`
-    const props = clickable(amt, key)
-    return <td {...props}>{amt ? `$${fmt(amt)}` : '—'}</td>
+    const isActive = activeKey === key
+    return (
+      <td onClick={amt ? () => onCellClick(key) : undefined}
+        style={{ ...CS, cursor: amt ? 'pointer' : 'default',
+          background: isActive ? '#d0e8f8' : undefined }}>
+        {amt ? `$${fmt(amt)}` : '—'}
+      </td>
+    )
   }
 
-  function TotCell({ aAmt, bAmt, st }) {
-    const keyA = `${mk}|${st}|all|A`, keyB = `${mk}|${st}|all|B`
-    const aProps = clickable(aAmt, keyA)
-    const bProps = clickable(bAmt, keyB)
-    return <>
-      <td {...aProps} style={{ ...(aProps.style||{}), fontWeight:600, background: activeKey===keyA?'#d0e8f8':'#f0f5fb' }}>{aAmt?`$${fmt(aAmt)}`:'—'}</td>
-      <td style={{ ...CS, color:'#777', borderRight:'2px solid #bbb' }}>{(aData?.[st]?.I?.cnt||0)+(aData?.[st]?.E?.cnt||0)||'—'}</td>
-      <td {...bProps} style={{ ...(bProps.style||{}), fontWeight:600, background: activeKey===keyB?'#d0e8f8':'#f8f2e8' }}>{bAmt?`$${fmt(bAmt)}`:'—'}</td>
-      <td style={{ ...CS, color:'#777', borderRight:'2px solid #bbb' }}>{(bData?.[st]?.I?.cnt||0)+(bData?.[st]?.E?.cnt||0)||'—'}</td>
-    </>
+  function TotAmtCell({ amt, st, file, bgColor }) {
+    const key = `${mk}|${st}|all|${file}`
+    const isActive = activeKey === key
+    return (
+      <td onClick={amt ? () => onCellClick(key) : undefined}
+        style={{ ...CS, fontWeight:600, cursor: amt ? 'pointer' : 'default',
+          background: isActive ? '#d0e8f8' : bgColor }}>
+        {amt ? `$${fmt(amt)}` : '—'}
+      </td>
+    )
   }
 
   return (
@@ -221,14 +218,21 @@ function StatusTable({ mk, aData, bData, aFile, bFile, color, productionMapA, pr
             {statuses.map((st,i) => {
               const a = aData?.[st], b = bData?.[st]
               const aTot=(a?.I?.amt||0)+(a?.E?.amt||0), bTot=(b?.I?.amt||0)+(b?.E?.amt||0)
+              const aCnt=(a?.I?.cnt||0)+(a?.E?.cnt||0), bCnt=(b?.I?.cnt||0)+(b?.E?.cnt||0)
               return (
                 <tr key={st} style={{ background:i%2===0?'#fafaf8':'#fff' }}>
                   <td style={{ ...CS, textAlign:'right', fontWeight:500, borderRight:'1px solid #ccc' }}>{shortStatus(st)}</td>
+                  {/* A section: פנימי | חיצוני | סכום כולל | שורות */}
                   <AmtCell amt={a?.I?.amt} colKey={st} ie="I" file="A" />
                   <AmtCell amt={a?.E?.amt} colKey={st} ie="E" file="A" />
-                  <TotCell aAmt={aTot} bAmt={bTot} st={st} />
+                  <TotAmtCell amt={aTot} st={st} file="A" bgColor="#f0f5fb" />
+                  <td style={{ ...CS, color:'#777', borderRight:'2px solid #bbb' }}>{aCnt||'—'}</td>
+                  {/* B section: פנימי | חיצוני | סכום כולל | שורות */}
                   <AmtCell amt={b?.I?.amt} colKey={st} ie="I" file="B" />
                   <AmtCell amt={b?.E?.amt} colKey={st} ie="E" file="B" />
+                  <TotAmtCell amt={bTot} st={st} file="B" bgColor="#f8f2e8" />
+                  <td style={{ ...CS, color:'#777', borderRight:'2px solid #bbb' }}>{bCnt||'—'}</td>
+                  {/* Change */}
                   <ChangeCell aAmt={aTot} bAmt={bTot} style={{ ...CS, background:'#f0f8ec' }} />
                 </tr>
               )
@@ -237,10 +241,12 @@ function StatusTable({ mk, aData, bData, aFile, bFile, color, productionMapA, pr
           <tfoot>
             <tr style={{ fontWeight:700, background:'#e8edf5', fontSize:13 }}>
               <td style={{ ...CS, textAlign:'right', borderRight:'1px solid #ccc' }}>סה"כ</td>
-              <td style={CS}>${fmt(tA.iA)}</td><td style={CS}>${fmt(tA.eA)}</td>
+              <td style={CS}>${fmt(tA.iA)}</td>
+              <td style={CS}>${fmt(tA.eA)}</td>
               <td style={{ ...CS, fontWeight:700, background:'#d8e4f0' }}>${fmt(tA.tot)}</td>
               <td style={{ ...CS, borderRight:'2px solid #bbb' }}>{tA.cnt}</td>
-              <td style={CS}>${fmt(tB.iA)}</td><td style={CS}>${fmt(tB.eA)}</td>
+              <td style={CS}>${fmt(tB.iA)}</td>
+              <td style={CS}>${fmt(tB.eA)}</td>
               <td style={{ ...CS, fontWeight:700, background:'#eddfc8' }}>${fmt(tB.tot)}</td>
               <td style={{ ...CS, borderRight:'2px solid #bbb' }}>{tB.cnt}</td>
               <ChangeCell aAmt={tA.tot} bAmt={tB.tot} style={{ ...CS, background:'#dff0d8', fontSize:14 }} />
