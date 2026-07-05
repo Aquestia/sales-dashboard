@@ -70,10 +70,17 @@ function exportToExcel(rows, cols, filename, productionMap) {
 }
 
 function DetailPanel({ status, monthKey: mk, rows, productionMap, fileLabel, onClose }) {
+  const [sortCol, setSortCol] = useState('remaining_amount')
+  const [sortDir, setSortDir] = useState('desc')
   const CS = { padding:'5px 8px', fontSize:11, borderBottom:'0.5px solid #e8e8e2', whiteSpace:'nowrap', textAlign:'right' }
 
   const totalAmt = rows.reduce((s, r) => s + (r.remaining_amount || 0), 0)
-  const sorted = [...rows].sort((a, b) => (b.remaining_amount||0) - (a.remaining_amount||0))
+  const sorted = [...rows].sort((a, b) => {
+    const av=a[sortCol]??'', bv=b[sortCol]??''
+    const isNum = !isNaN(parseFloat(av)) && av!==''
+    const cmp = isNum ? parseFloat(av)-parseFloat(bv) : String(av).localeCompare(String(bv),'he')
+    return sortDir==='asc' ? cmp : -cmp
+  })
 
   return (
     <div style={{ border:'0.5px solid var(--border-card)', borderRadius:10, padding:'1rem 1.2rem', marginTop:16, background:'#fff' }}>
@@ -101,8 +108,12 @@ function DetailPanel({ status, monthKey: mk, rows, productionMap, fileLabel, onC
           <thead>
             <tr style={{ background:'#f5f5f0' }}>
               {SO_COLS.map(([k,l]) => (
-                <th key={k} style={{ ...CS, fontWeight:600, color:'#555', borderBottom:'1px solid #ddd' }}>
-                  {k === '_prod_info' ? 'פק"ע · שבוע · מאגר' : l}
+                <th key={k}
+                  onClick={() => { if(sortCol===k) setSortDir(d=>d==='asc'?'desc':'asc'); else {setSortCol(k);setSortDir('asc')} }}
+                  style={{ ...CS, fontWeight:600, color:'#555', borderBottom:'1px solid #ddd',
+                    cursor:'pointer', userSelect:'none',
+                    background: sortCol===k?'#e6f1fb':'transparent' }}>
+                  {k==='_prod_info'?'פק"ע · שבוע · מאגר':l} {sortCol===k?(sortDir==='asc'?'↑':'↓'):<span style={{opacity:0.3}}>↕</span>}
                 </th>
               ))}
             </tr>

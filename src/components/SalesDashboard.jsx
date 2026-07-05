@@ -34,6 +34,8 @@ export default function SalesDashboard() {
   const [files, setFiles] = useState([])
   const [selectedFileId, setSelectedFileId] = useState(null)
   const [orders, setOrders] = useState([])
+  const [sortCol, setSortCol] = useState('confirmed_ship_date')
+  const [sortDir, setSortDir] = useState('asc')
   const [loadingFile, setLoadingFile] = useState(true)
 
   useEffect(() => {
@@ -285,18 +287,30 @@ export default function SalesDashboard() {
               <thead>
                 <tr>
                   {ORDER_COLS.map(([k, l]) => (
-                    <th key={k} style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', borderBottom: '0.5px solid var(--border)', whiteSpace: 'nowrap' }}>{l}</th>
+                    <th key={k}
+                      onClick={() => { if (sortCol===k) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(k); setSortDir('asc') } }}
+                      style={{ textAlign:'right', padding:'6px 8px', color:'var(--text-secondary)',
+                        borderBottom:'0.5px solid var(--border)', whiteSpace:'nowrap',
+                        cursor:'pointer', userSelect:'none',
+                        background: sortCol===k ? 'var(--blue-bg)' : 'transparent' }}>
+                      {l} {sortCol===k ? (sortDir==='asc'?'↑':'↓') : <span style={{opacity:0.3}}>↕</span>}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {detailRows.sort((a,b)=>(a.confirmed_ship_date||'').localeCompare(b.confirmed_ship_date||'')).map((r, i) => (
-                  <tr key={i} style={{ background: i % 2 === 0 ? 'var(--surface-1)' : 'var(--surface-2)' }}>
+                {[...detailRows].sort((a,b) => {
+                  const av=a[sortCol]??'', bv=b[sortCol]??''
+                  const isNum = !isNaN(parseFloat(av)) && av!==''
+                  const cmp = isNum ? parseFloat(av)-parseFloat(bv) : String(av).localeCompare(String(bv),'he')
+                  return sortDir==='asc' ? cmp : -cmp
+                }).map((r, i) => (
+                  <tr key={i} style={{ background: i%2===0?'var(--surface-1)':'var(--surface-2)' }}>
                     {ORDER_COLS.map(([k]) => (
-                      <td key={k} style={{ padding: '6px 8px', borderBottom: '0.5px solid var(--border)', whiteSpace: 'nowrap' }}>
-                        {k === 'remaining_amount' ? '$' + fmt(r[k] || 0)
-                          : k === 'production_number' ? (r[k] || '—')
-                          : (r[k] ?? '')}
+                      <td key={k} style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border)', whiteSpace:'nowrap' }}>
+                        {k==='remaining_amount' ? '$'+fmt(r[k]||0)
+                          : k==='production_number' ? (r[k]||'—')
+                          : (r[k]??'')}
                       </td>
                     ))}
                   </tr>
