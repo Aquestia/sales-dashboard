@@ -198,8 +198,12 @@ function StatusTable({ mk, aData, bData, aFile, bFile, color, productionMapA, pr
           <thead>
             <tr>
               <th rowSpan={2} style={{ ...HS, textAlign:'right', borderRight:'1px solid #ccc' }}>סטטוס</th>
-              <th colSpan={4} style={{ ...HS, background:'#eaf0f8', textAlign:'center', borderRight:'2px solid #bbb' }}>{aFile?.batch_date||'—'}</th>
-              <th colSpan={4} style={{ ...HS, background:'#f5f0e8', textAlign:'center', borderRight:'2px solid #bbb' }}>{bFile?.batch_date||'—'}</th>
+              <th colSpan={4} style={{ ...HS, background:'#eaf0f8', textAlign:'center', borderRight:'2px solid #bbb' }}>
+                📅 {aFile?.batch_date||'—'} <span style={{fontSize:10,fontWeight:400,opacity:0.8}}>(עדכני)</span>
+              </th>
+              <th colSpan={4} style={{ ...HS, background:'#f5f0e8', textAlign:'center', borderRight:'2px solid #bbb' }}>
+                📅 {bFile?.batch_date||'—'} <span style={{fontSize:10,fontWeight:400,opacity:0.8}}>(קודם)</span>
+              </th>
               <th rowSpan={2} style={{ ...HS, background:'#eef5ea', textAlign:'center' }}>שינוי</th>
             </tr>
             <tr>
@@ -279,9 +283,19 @@ export default function MonthlyStatusView({ production, dr4, dr5 }) {
     if (selected.length !== 2) return
     setLoading(true); setActiveKey(null)
     const [idA, idB] = selected
-    const [a, b] = await Promise.all([fetchSalesOrdersByFileId(idA), fetchSalesOrdersByFileId(idB)])
-    setOrdersA(a); setOrdersB(b)
-    setActiveFiles([allFiles.find(f=>f.id===idA), allFiles.find(f=>f.id===idB)])
+    const fileA = allFiles.find(f=>f.id===idA)
+    const fileB = allFiles.find(f=>f.id===idB)
+
+    // Sort: newer = left (index 0), older = right (index 1)
+    const [newerFile, olderFile] = fileA.batch_date >= fileB.batch_date
+      ? [fileA, fileB] : [fileB, fileA]
+
+    const [newOrders, oldOrders] = await Promise.all([
+      fetchSalesOrdersByFileId(newerFile.id),
+      fetchSalesOrdersByFileId(olderFile.id)
+    ])
+    setOrdersA(newOrders); setOrdersB(oldOrders)
+    setActiveFiles([newerFile, olderFile])
     setLoading(false); setRunning(true)
   }
 
