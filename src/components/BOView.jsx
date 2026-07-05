@@ -176,24 +176,43 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
     )
   }
 
-  // Build DR4 (עב"ש) and DR5 (צבע) lookup by item_number
-  const dr4ByItem = useMemo(() => {
+  // Sales order → production_number lookup
+  const soProductionMap = useMemo(() => {
+    const m = {}
+    salesOrders.forEach(o => { m[o.sales_order] = o.production_number })
+    return m
+  }, [salesOrders])
+
+  // DR4/DR5 by PARENT production order
+  const dr4ByParent = useMemo(() => {
     const m = {}
     dr4.forEach(d => {
-      if (!m[d.item_number]) m[d.item_number] = []
-      m[d.item_number].push({ ...d, type: 'עב"ש' })
+      const k = d.parent_production_order
+      if (!m[k]) m[k] = []
+      m[k].push({ ...d, type: 'עב"ש' })
     })
     return m
   }, [dr4])
 
-  const dr5ByItem = useMemo(() => {
+  const dr5ByParent = useMemo(() => {
     const m = {}
     dr5.forEach(d => {
-      if (!m[d.item_number]) m[d.item_number] = []
-      m[d.item_number].push({ ...d, type: 'צבע' })
+      const k = d.parent_production_order
+      if (!m[k]) m[k] = []
+      m[k].push({ ...d, type: 'צבע' })
     })
     return m
   }, [dr5])
+
+  // Allocation by number (for sub-production shortages)
+  const allocByNumber = useMemo(() => {
+    const m = {}
+    allocation.forEach(a => {
+      if (!m[a.number]) m[a.number] = []
+      m[a.number].push(a)
+    })
+    return m
+  }, [allocation])
 
   function bestPO(itemNumber) {
     const candidates = purchaseOrders.filter(p =>
@@ -280,42 +299,72 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
                         <tr key={shortageKey + '-shortage'}>
                           <td colSpan={cols.length} style={{ padding:'8px 12px', background:'#fefcf8', borderBottom:'0.5px solid var(--border-tbl)' }}>
 
-                            {/* PRODUCTION shortages — purple */}
-                            {prodItems.length > 0 && (
-                              <div style={{ marginBottom: purchItems.length ? 12 : 0 }}>
-                                <div style={{ fontSize:12, fontWeight:600, color:'#6B21A8', marginBottom:6 }}>🟣 חוסרי ייצור — הזמנה {r.doc}</div>
-                                <table style={{ fontSize:11, width:'100%', borderCollapse:'collapse' }}>
-                                  <thead><tr>
-                                    {['מק"ט חסר','שם פריט','כמות חסרה','תאריך נדרש','סוג','פק"ע','סטטוס','תאריך ייצור','חומר ראשי','כמות זמינה'].map(h=>(
-                                      <th key={h} style={{ ...CS, color:'var(--text-muted)', borderBottom:'0.5px solid var(--border-tbl)', fontWeight:600 }}>{h}</th>
-                                    ))}
-                                  </tr></thead>
-                                  <tbody>
-                                    {prodItems.map((s,si) => {
-                                      // Look in DR4 (עב"ש) and DR5 (צבע) by item_number
-                                      const dr4Rows = (dr4ByItem[s.item_number] || []).filter(d => !['Ended','Reported as finished'].includes(d.status))
-                                      const dr5Rows = (dr5ByItem[s.item_number] || []).filter(d => !['Ended','Reported as finished'].includes(d.status))
-                                      const subRows = [...dr4Rows, ...dr5Rows]
-                                      const ap = subRows[0] || null
-                                      return (
-                                        <tr key={si} style={{ background: ap ? '#f3e8ff' : '#fbe9e7' }}>
-                                          <td style={CS}>{s.item_number}</td>
-                                          <td style={CS}>{s.product_name}</td>
-                                          <td style={{ ...CS, fontWeight:600 }}>{Math.round(s.missing_qty)}</td>
-                                          <td style={CS}>{soConfirmedDate[r.doc] || s.requested_delivery_date||'—'}</td>
-                                          <td style={{ ...CS, fontWeight:600, color: ap?.type==='עב"ש'?'#92400e':'#1e40af' }}>{ap?.type||'—'}</td>
-                                          <td style={CS}>{ap?.production_order||'—'}</td>
-                                          <td style={CS}>{ap?.status||'—'}</td>
-                                          <td style={CS}>{!ap?.production_date?'לא משובץ':ap.production_date}</td>
-                                          <td style={CS}>{ap?.main_component||'—'}</td>
-                                          <td style={CS}>{ap?.main_component_available!=null?ap.main_component_available:'—'}</td>
-                                        </tr>
-                                      )
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
+                            {/* PRODUCTION shortages — deep chain */}
+                            {prodItems.length > 0 && (() => {
+                              const DONE = ['Ended','Reported as finished']
+                              const mainPrd = soProductionMap[r.doc]
+                              // DR4 + DR5 sub-orders for the main production order
+                              const subOrders = [
+                                ...(dr4ByParent[mainPrd] || []).filter(d=>!DONE.includes(d.status)),
+                                ...(dr5ByParent[mainPrd] || []).filter(d=>!DONE.includes(d.status))
+                              ]
+                              return (
+                                <div style={{ marginBottom: purchItems.length ? 12 : 0 }}>
+                                  <div style={{ fontSize:12, fontWeight:600, color:'#6B21A8', marginBottom:4 }}>
+                                    🟣 חוסרי ייצור — הזמנה {r.doc} · פק"ע ראשית: {mainPrd||'—'}
+                                  </div>
+                                  {subOrders.length === 0 ? (
+                                    <div style={{fontSize:11,color:'#888',padding:'4px 8px'}}>
+                                      אין תת-פק"עות פעילות ב-DR4/DR5 תחת {mainPrd}
+                                    </div>
+                                  ) : subOrders.map((sub, si) => {
+                                    const subAlloc = (allocByNumber[sub.production_order] || []).filter(a=>a.missing_qty>0)
+                                    return (
+                                      <div key={si} style={{marginBottom:8,padding:'6px 8px',background: sub.type==='עב"ש'?'#fef3c7':'#ede9fe',borderRadius:6,border:`0.5px solid ${sub.type==='עב"ש'?'#d97706':'#7c3aed'}`}}>
+                                        <div style={{fontSize:11,fontWeight:600,marginBottom:6,color:sub.type==='עב"ש'?'#92400e':'#6B21A8'}}>
+                                          {sub.type==='עב"ש'?'🔧 עב"ש':'🎨 צבע'} — פק"ע: {sub.production_order} · {sub.item_number} · סטטוס: {sub.status}
+                                        </div>
+                                        {subAlloc.length === 0 ? (
+                                          <div style={{fontSize:10,color:'#888'}}>אין חוסרים בהקצאה החישובית לתת-פק"ע זו</div>
+                                        ) : (
+                                          <table style={{fontSize:10,width:'100%',borderCollapse:'collapse'}}>
+                                            <thead><tr>
+                                              {['מק"ט','שם פריט','כמות חסרה','הזמנת רכש','ספק','תאריך אספקה','סטטוס'].map(h=>(
+                                                <th key={h} style={{...CS,fontSize:10,color:'#666',borderBottom:'0.5px solid #ddd',fontWeight:600}}>{h}</th>
+                                              ))}
+                                            </tr></thead>
+                                            <tbody>
+                                              {subAlloc.map((a,ai) => {
+                                                const po = bestPO(a.item_number)
+                                                const eta = po?(po.confirmed_receipt_date||po.requested_receipt_date||''):''
+                                                const needDate = soConfirmedDate[r.doc] || ''
+                                                const late = needDate && eta && eta > needDate
+                                                return (
+                                                  <tr key={ai} style={{background:po?'#eaf3de':'#fbe9e7'}}>
+                                                    <td style={{...CS,fontSize:10}}>{a.item_number}</td>
+                                                    <td style={{...CS,fontSize:10}}>{a.product_name}</td>
+                                                    <td style={{...CS,fontSize:10,fontWeight:600}}>{Math.round(a.missing_qty)}</td>
+                                                    <td style={{...CS,fontSize:10}}>{po?.purchase_order||'—'}</td>
+                                                    <td style={{...CS,fontSize:10}}>{po?.vendor_name||'—'}</td>
+                                                    <td style={{...CS,fontSize:10}}>{eta||'—'}</td>
+                                                    <td style={{...CS,fontSize:10}}>
+                                                      {po?(late
+                                                        ?<span style={{color:'var(--red-dark)',fontWeight:600}}>איחור צפוי</span>
+                                                        :<span style={{color:'var(--green-dark)'}}>בזמן</span>)
+                                                        :<span style={{color:'var(--red-dark)',fontWeight:600}}>אין הזמנת רכש</span>}
+                                                    </td>
+                                                  </tr>
+                                                )
+                                              })}
+                                            </tbody>
+                                          </table>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )
+                            })()}
 
                             {/* PURCHASE shortages — red */}
                             {purchItems.length > 0 && (
