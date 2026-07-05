@@ -30,7 +30,7 @@ function monthLabel(key) {
   return `${months[parseInt(m) - 1]} ${y}`
 }
 
-export default function SalesDashboard() {
+export default function SalesDashboard({ invoices = [] }) {
   const [files, setFiles] = useState([])
   const [selectedFileId, setSelectedFileId] = useState(null)
   const [orders, setOrders] = useState([])
@@ -185,6 +185,32 @@ export default function SalesDashboard() {
           <div className="kpi-sub">{netOrders.filter(r=>r.cat==='External').length} שורות</div>
         </button>
       </div>
+
+      {/* Invoice KPI cards */}
+      {invoices.length > 0 && (() => {
+        const invTotal    = invoices.reduce((s, r) => s + (r.invoice_amount || 0), 0)
+        const invInternal = invoices.filter(r => r.cat === 'Internal').reduce((s, r) => s + (r.invoice_amount || 0), 0)
+        const invExternal = invoices.filter(r => r.cat === 'External').reduce((s, r) => s + (r.invoice_amount || 0), 0)
+        return (
+          <div className="kpi-row" style={{ marginBottom: '1.5rem' }}>
+            <div className="kpi-card" style={{ cursor: 'default', borderRight: '3px solid #2D7D46' }}>
+              <div className="kpi-label">סה"כ חשבוניות</div>
+              <div className="kpi-value" style={{ color: '#2D7D46' }}>${fmt(invTotal)}</div>
+              <div className="kpi-sub">{invoices.length} חשבוניות</div>
+            </div>
+            <div className="kpi-card" style={{ cursor: 'default' }}>
+              <div className="kpi-label">לקוחות פנימיים</div>
+              <div className="kpi-value">${fmt(invInternal)}</div>
+              <div className="kpi-sub">{invoices.filter(r=>r.cat==='Internal').length} חשבוניות</div>
+            </div>
+            <div className="kpi-card" style={{ cursor: 'default' }}>
+              <div className="kpi-label">לקוחות חיצוניים</div>
+              <div className="kpi-value">${fmt(invExternal)}</div>
+              <div className="kpi-sub">{invoices.filter(r=>r.cat==='External').length} חשבוניות</div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Monthly table */}
       <div className="section-box" style={{ marginBottom: '1.5rem' }}>
