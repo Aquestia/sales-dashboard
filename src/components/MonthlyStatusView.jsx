@@ -137,7 +137,8 @@ function DetailPanel({ status, monthKey: mk, rows, productionMap, fileLabel, onC
 }
 
 function ChangeCell({ aAmt, bAmt, style={} }) {
-  const diff = aAmt - bAmt  // עדכני פחות קודם
+  // bAmt = newer (B=left=עדכני), aAmt = older (A=right=קודם)
+  const diff = bAmt - aAmt
   if (Math.abs(diff) < 0.01) return <td style={style}><span style={{color:'#999',fontSize:13}}>↔</span></td>
   const up = diff > 0
   return (
@@ -194,24 +195,32 @@ function StatusTable({ mk, aData, bData, aFile, bFile, color, productionMapA, pr
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
           <thead>
             <tr>
-              <th rowSpan={2} style={{ ...HS, textAlign:'right', borderRight:'1px solid #ccc' }}>סטטוס</th>
-              <th colSpan={4} style={{ ...HS, background:'#eaf0f8', textAlign:'center', borderRight:'2px solid #bbb' }}>
-                📅 {aFile?.batch_date||'—'} <span style={{fontSize:10,fontWeight:400,opacity:0.75}}>· {aFile?.filename} (עדכני)</span>
+              <th rowSpan={2} style={{ ...HS, textAlign:'right', borderLeft:'2px solid #ccc', borderRight:'none' }}>סטטוס</th>
+              {/* A = RIGHT = קודם = brown */}
+              <th colSpan={4} style={{ ...HS, background:'#f5efe0', textAlign:'center', borderLeft:'2px solid #b8860b' }}>
+                📅 {aFile?.batch_date||'—'}
+                <span style={{fontSize:10, fontWeight:500, marginRight:6, color:'#7a5a00'}}> {aFile?.filename}</span>
+                <span style={{fontSize:11, fontWeight:700, color:'#7a5a00'}}>(קודם)</span>
               </th>
-              <th colSpan={4} style={{ ...HS, background:'#f5f0e8', textAlign:'center', borderRight:'2px solid #bbb' }}>
-                📅 {bFile?.batch_date||'—'} <span style={{fontSize:10,fontWeight:400,opacity:0.75}}>· {bFile?.filename} (קודם)</span>
+              {/* B = LEFT = עדכני = blue */}
+              <th colSpan={4} style={{ ...HS, background:'#dceefb', textAlign:'center', borderLeft:'2px solid #1565a0' }}>
+                📅 {bFile?.batch_date||'—'}
+                <span style={{fontSize:10, fontWeight:500, marginRight:6, color:'#1565a0'}}> {bFile?.filename}</span>
+                <span style={{fontSize:11, fontWeight:700, color:'#1565a0'}}>(עדכני)</span>
               </th>
               <th rowSpan={2} style={{ ...HS, background:'#eef5ea', textAlign:'center' }}>שינוי</th>
             </tr>
             <tr>
-              <th style={{ ...HS, background:'#eaf0f8' }}>פנימי $</th>
-              <th style={{ ...HS, background:'#eaf0f8' }}>חיצוני $</th>
-              <th style={{ ...HS, background:'#dce8f5', fontWeight:700 }}>סכום כולל</th>
-              <th style={{ ...HS, background:'#eaf0f8', borderRight:'2px solid #bbb' }}>שורות</th>
-              <th style={{ ...HS, background:'#f5f0e8' }}>פנימי $</th>
-              <th style={{ ...HS, background:'#f5f0e8' }}>חיצוני $</th>
-              <th style={{ ...HS, background:'#ede5d8', fontWeight:700 }}>סכום כולל</th>
-              <th style={{ ...HS, background:'#f5f0e8', borderRight:'2px solid #bbb' }}>שורות</th>
+              {/* A sub-headers = brown */}
+              <th style={{ ...HS, background:'#f5efe0', color:'#7a5a00' }}>פנימי $</th>
+              <th style={{ ...HS, background:'#f5efe0', color:'#7a5a00' }}>חיצוני $</th>
+              <th style={{ ...HS, background:'#e8d9b0', color:'#7a5a00', fontWeight:700 }}>סכום כולל</th>
+              <th style={{ ...HS, background:'#f5efe0', color:'#7a5a00', borderLeft:'2px solid #b8860b' }}>שורות</th>
+              {/* B sub-headers = blue */}
+              <th style={{ ...HS, background:'#dceefb', color:'#1565a0' }}>פנימי $</th>
+              <th style={{ ...HS, background:'#dceefb', color:'#1565a0' }}>חיצוני $</th>
+              <th style={{ ...HS, background:'#b8dcf5', color:'#1565a0', fontWeight:700 }}>סכום כולל</th>
+              <th style={{ ...HS, background:'#dceefb', color:'#1565a0', borderLeft:'2px solid #1565a0' }}>שורות</th>
             </tr>
           </thead>
           <tbody>
@@ -225,13 +234,13 @@ function StatusTable({ mk, aData, bData, aFile, bFile, color, productionMapA, pr
                   {/* A section: פנימי | חיצוני | סכום כולל | שורות */}
                   <AmtCell amt={a?.I?.amt} colKey={st} ie="I" file="A" />
                   <AmtCell amt={a?.E?.amt} colKey={st} ie="E" file="A" />
-                  <TotAmtCell amt={aTot} st={st} file="A" bgColor="#f0f5fb" />
-                  <td style={{ ...CS, color:'#777', borderRight:'2px solid #bbb' }}>{aCnt||'—'}</td>
+                  <TotAmtCell amt={aTot} st={st} file="A" bgColor="#f0e4c0" />
+                  <td style={{ ...CS, color:'#777', borderLeft:'2px solid #b8860b' }}>{aCnt||'—'}</td>
                   {/* B section: פנימי | חיצוני | סכום כולל | שורות */}
                   <AmtCell amt={b?.I?.amt} colKey={st} ie="I" file="B" />
                   <AmtCell amt={b?.E?.amt} colKey={st} ie="E" file="B" />
-                  <TotAmtCell amt={bTot} st={st} file="B" bgColor="#f8f2e8" />
-                  <td style={{ ...CS, color:'#777', borderRight:'2px solid #bbb' }}>{bCnt||'—'}</td>
+                  <TotAmtCell amt={bTot} st={st} file="B" bgColor="#b8dcf5" />
+                  <td style={{ ...CS, color:'#777', borderLeft:'2px solid #1565a0' }}>{bCnt||'—'}</td>
                   {/* Change */}
                   <ChangeCell aAmt={aTot} bAmt={bTot} style={{ ...CS, background:'#f0f8ec' }} />
                 </tr>
@@ -243,12 +252,12 @@ function StatusTable({ mk, aData, bData, aFile, bFile, color, productionMapA, pr
               <td style={{ ...CS, textAlign:'right', borderRight:'1px solid #ccc' }}>סה"כ</td>
               <td style={CS}>${fmt(tA.iA)}</td>
               <td style={CS}>${fmt(tA.eA)}</td>
-              <td style={{ ...CS, fontWeight:700, background:'#d8e4f0' }}>${fmt(tA.tot)}</td>
-              <td style={{ ...CS, borderRight:'2px solid #bbb' }}>{tA.cnt}</td>
+              <td style={{ ...CS, fontWeight:700, background:'#e8d9b0' }}>${fmt(tA.tot)}</td>
+              <td style={{ ...CS, borderLeft:'2px solid #b8860b' }}>{tA.cnt}</td>
               <td style={CS}>${fmt(tB.iA)}</td>
               <td style={CS}>${fmt(tB.eA)}</td>
-              <td style={{ ...CS, fontWeight:700, background:'#eddfc8' }}>${fmt(tB.tot)}</td>
-              <td style={{ ...CS, borderRight:'2px solid #bbb' }}>{tB.cnt}</td>
+              <td style={{ ...CS, fontWeight:700, background:'#b8dcf5' }}>${fmt(tB.tot)}</td>
+              <td style={{ ...CS, borderLeft:'2px solid #1565a0' }}>{tB.cnt}</td>
               <ChangeCell aAmt={tA.tot} bAmt={tB.tot} style={{ ...CS, background:'#dff0d8', fontSize:14 }} />
             </tr>
           </tfoot>
@@ -292,18 +301,19 @@ export default function MonthlyStatusView({ production, dr4, dr5 }) {
     const fileA = allFiles.find(f=>f.id===idA)
     const fileB = allFiles.find(f=>f.id===idB)
 
-    // Sort: newer = left (index 0), older = right (index 1)
-    // Primary sort by batch_date, secondary by uploaded_at
+    // RIGHT side (A, first in HTML) = older = קודם
+    // LEFT side  (B, later in HTML) = newer = עדכני
     const sortKey = f => f.batch_date + '_' + f.uploaded_at
-    const [newerFile, olderFile] = sortKey(fileA) >= sortKey(fileB)
-      ? [fileA, fileB] : [fileB, fileA]
+    const [olderFile, newerFile] = sortKey(fileA) >= sortKey(fileB)
+      ? [fileB, fileA] : [fileA, fileB]
 
-    const [newOrders, oldOrders] = await Promise.all([
-      fetchSalesOrdersByFileId(newerFile.id),
-      fetchSalesOrdersByFileId(olderFile.id)
+    const [oldOrders, newOrders] = await Promise.all([
+      fetchSalesOrdersByFileId(olderFile.id),
+      fetchSalesOrdersByFileId(newerFile.id)
     ])
-    setOrdersA(newOrders); setOrdersB(oldOrders)
-    setActiveFiles([newerFile, olderFile])
+    setOrdersA(oldOrders)   // A = right = older
+    setOrdersB(newOrders)   // B = left  = newer
+    setActiveFiles([olderFile, newerFile])
     setLoading(false); setRunning(true)
   }
 
