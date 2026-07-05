@@ -143,70 +143,91 @@ export default function SalesDashboard({ invoices = [] }) {
       )}
 
       {/* Row 1: Total + exclusions */}
-      <div className="kpi-row" style={{ marginBottom: '0.75rem' }}>
-        <button onClick={() => toggle('all')} className={'kpi-card' + (isActive('all') ? ' active' : '')}>
-          <div className="kpi-label">סה"כ הזמנות פתוחות</div>
-          <div className="kpi-value">${fmt(totalAll)}</div>
-          <div className="kpi-sub">{orders.length} שורות</div>
-        </button>
-        <button onClick={() => toggle('drop')} className={'kpi-card' + (isActive('drop') ? ' active' : '')}>
-          <div className="kpi-label">Drop Order</div>
-          <div className="kpi-value">${fmt(dropAmt)}</div>
-          <div className="kpi-sub">{dropOrders.length} שורות</div>
-        </button>
-        <button onClick={() => toggle('consignment')} className={'kpi-card' + (isActive('consignment') ? ' active' : '')}>
-          <div className="kpi-label">Consignment</div>
-          <div className="kpi-value">${fmt(consAmt)}</div>
-          <div className="kpi-sub">{consignment.length} שורות</div>
-        </button>
-        <button onClick={() => toggle('india')} className={'kpi-card' + (isActive('india') ? ' active' : '')}>
-          <div className="kpi-label">Aquestia India</div>
-          <div className="kpi-value">${fmt(indiaAmt)}</div>
-          <div className="kpi-sub">{india.length} שורות</div>
-        </button>
+      <div style={{ marginBottom: '1rem' }}>
+        <div style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
+          📦 סקירת הזמנות פתוחות
+        </div>
+        <div className="kpi-row" style={{ marginBottom: 0 }}>
+          <button onClick={() => toggle('all')} className={'kpi-card' + (isActive('all') ? ' active' : '')}
+            style={{ borderTop: '3px solid #185FA5' }}>
+            <div className="kpi-label">סה"כ הזמנות פתוחות</div>
+            <div className="kpi-value" style={{ color:'#185FA5' }}>${fmt(totalAll)}</div>
+            <div className="kpi-sub">{orders.length} שורות</div>
+          </button>
+          <button onClick={() => toggle('drop')} className={'kpi-card' + (isActive('drop') ? ' active' : '')}
+            style={{ borderTop: '3px solid #9CA3AF' }}>
+            <div className="kpi-label">Drop Order</div>
+            <div className="kpi-value">${fmt(dropAmt)}</div>
+            <div className="kpi-sub">{dropOrders.length} שורות</div>
+          </button>
+          <button onClick={() => toggle('consignment')} className={'kpi-card' + (isActive('consignment') ? ' active' : '')}
+            style={{ borderTop: '3px solid #9CA3AF' }}>
+            <div className="kpi-label">Consignment</div>
+            <div className="kpi-value">${fmt(consAmt)}</div>
+            <div className="kpi-sub">{consignment.length} שורות</div>
+          </button>
+          <button onClick={() => toggle('india')} className={'kpi-card' + (isActive('india') ? ' active' : '')}
+            style={{ borderTop: '3px solid #9CA3AF' }}>
+            <div className="kpi-label">Aquestia India</div>
+            <div className="kpi-value">${fmt(indiaAmt)}</div>
+            <div className="kpi-sub">{india.length} שורות</div>
+          </button>
+        </div>
       </div>
 
-      {/* Row 2: Net (after exclusions) + internal/external split */}
-      <div className="kpi-row">
-        <button onClick={() => toggle('net')} className={'kpi-card' + (isActive('net') ? ' active' : '')}
-          style={{ borderColor: 'var(--border-accent)' }}>
-          <div className="kpi-label">סה"כ נטו (ללא Drop/Consignment/India)</div>
-          <div className="kpi-value">${fmt(netTotal)}</div>
-          <div className="kpi-sub">{netOrders.length} שורות</div>
-        </button>
-        <button onClick={() => toggle('net-internal')} className={'kpi-card' + (isActive('net-internal') ? ' active' : '')}>
-          <div className="kpi-label">לקוחות פנימיים (נטו)</div>
-          <div className="kpi-value">${fmt(netInternal)}</div>
-          <div className="kpi-sub">{netOrders.filter(r=>r.cat==='Internal').length} שורות</div>
-        </button>
-        <button onClick={() => toggle('net-external')} className={'kpi-card' + (isActive('net-external') ? ' active' : '')}>
-          <div className="kpi-label">לקוחות חיצוניים (נטו)</div>
-          <div className="kpi-value">${fmt(netExternal)}</div>
-          <div className="kpi-sub">{netOrders.filter(r=>r.cat==='External').length} שורות</div>
-        </button>
+      {/* Row 2: Net */}
+      <div style={{ marginBottom: '1rem' }}>
+        <div style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
+          🎯 נטו (ללא Drop / Consignment / India)
+        </div>
+        <div className="kpi-row" style={{ marginBottom: 0 }}>
+          <button onClick={() => toggle('net')} className={'kpi-card' + (isActive('net') ? ' active' : '')}
+            style={{ borderTop: '3px solid #D97706' }}>
+            <div className="kpi-label">סה"כ נטו</div>
+            <div className="kpi-value" style={{ color:'#D97706' }}>${fmt(netTotal)}</div>
+            <div className="kpi-sub">{netOrders.length} שורות</div>
+          </button>
+          <button onClick={() => toggle('net-internal')} className={'kpi-card' + (isActive('net-internal') ? ' active' : '')}
+            style={{ borderTop: '3px solid #D97706' }}>
+            <div className="kpi-label">לקוחות פנימיים</div>
+            <div className="kpi-value">${fmt(netInternal)}</div>
+            <div className="kpi-sub">{netOrders.filter(r=>r.cat==='Internal').length} שורות</div>
+          </button>
+          <button onClick={() => toggle('net-external')} className={'kpi-card' + (isActive('net-external') ? ' active' : '')}
+            style={{ borderTop: '3px solid #D97706' }}>
+            <div className="kpi-label">לקוחות חיצוניים</div>
+            <div className="kpi-value">${fmt(netExternal)}</div>
+            <div className="kpi-sub">{netOrders.filter(r=>r.cat==='External').length} שורות</div>
+          </button>
+        </div>
       </div>
 
-      {/* Invoice KPI cards */}
+      {/* Row 3: Invoices */}
       {invoices.length > 0 && (() => {
         const invTotal    = invoices.reduce((s, r) => s + (r.invoice_amount || 0), 0)
         const invInternal = invoices.filter(r => r.cat === 'Internal').reduce((s, r) => s + (r.invoice_amount || 0), 0)
         const invExternal = invoices.filter(r => r.cat === 'External').reduce((s, r) => s + (r.invoice_amount || 0), 0)
         return (
-          <div className="kpi-row" style={{ marginBottom: '1.5rem' }}>
-            <div className="kpi-card" style={{ cursor: 'default', borderRight: '3px solid #2D7D46' }}>
-              <div className="kpi-label">סה"כ חשבוניות</div>
-              <div className="kpi-value" style={{ color: '#2D7D46' }}>${fmt(invTotal)}</div>
-              <div className="kpi-sub">{invoices.length} חשבוניות</div>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
+              🧾 חשבוניות
             </div>
-            <div className="kpi-card" style={{ cursor: 'default' }}>
-              <div className="kpi-label">לקוחות פנימיים</div>
-              <div className="kpi-value">${fmt(invInternal)}</div>
-              <div className="kpi-sub">{invoices.filter(r=>r.cat==='Internal').length} חשבוניות</div>
-            </div>
-            <div className="kpi-card" style={{ cursor: 'default' }}>
-              <div className="kpi-label">לקוחות חיצוניים</div>
-              <div className="kpi-value">${fmt(invExternal)}</div>
-              <div className="kpi-sub">{invoices.filter(r=>r.cat==='External').length} חשבוניות</div>
+            <div className="kpi-row" style={{ marginBottom: 0 }}>
+              <div className="kpi-card" style={{ cursor:'default', borderTop:'3px solid #2D7D46' }}>
+                <div className="kpi-label">סה"כ חשבוניות</div>
+                <div className="kpi-value" style={{ color:'#2D7D46' }}>${fmt(invTotal)}</div>
+                <div className="kpi-sub">{invoices.length} חשבוניות</div>
+              </div>
+              <div className="kpi-card" style={{ cursor:'default', borderTop:'3px solid #2D7D46' }}>
+                <div className="kpi-label">לקוחות פנימיים</div>
+                <div className="kpi-value">${fmt(invInternal)}</div>
+                <div className="kpi-sub">{invoices.filter(r=>r.cat==='Internal').length} חשבוניות</div>
+              </div>
+              <div className="kpi-card" style={{ cursor:'default', borderTop:'3px solid #2D7D46' }}>
+                <div className="kpi-label">לקוחות חיצוניים</div>
+                <div className="kpi-value">${fmt(invExternal)}</div>
+                <div className="kpi-sub">{invoices.filter(r=>r.cat==='External').length} חשבוניות</div>
+              </div>
             </div>
           </div>
         )
