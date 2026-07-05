@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import { fmt } from '../utils/helpers'
-import { saveProcurementNote } from '../utils/db'
 
 const MONTHS_HE = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ']
 
@@ -151,6 +150,29 @@ export default function BOView({ bo, allocation = [], purchaseOrders = [], procu
         )
       })()}
 
+      {/* Note view modal */}
+      {viewNote && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+          onClick={()=>setViewNote(null)}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{background:'#fff',borderRadius:12,padding:'1.5rem 1.75rem',minWidth:340,maxWidth:500,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+              <div style={{fontWeight:600,fontSize:15}}>הערת רכש</div>
+              <div style={{fontSize:11,color:'#888'}}>מק"ט: {viewNote.itemNumber}</div>
+            </div>
+            <div style={{background:'#f8f8f5',borderRadius:8,padding:'12px 14px',fontSize:13,lineHeight:1.7,minHeight:60,
+              color:viewNote.note?'var(--text-main)':'#aaa'}}>
+              {viewNote.note || 'אין הערה לפריט זה'}
+            </div>
+            <div style={{marginTop:16,textAlign:'left'}}>
+              <button onClick={()=>setViewNote(null)}
+                style={{padding:'8px 20px',borderRadius:8,background:'var(--blue-dark)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600,fontSize:13}}>
+                סגור
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -159,21 +181,7 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
   const [open, setOpen] = useState(false)
   const [openShortage, setOpenShortage] = useState(null)
   const [notes, setNotes] = useState(procurementNotes)
-  const [editingNote, setEditingNote] = useState(null) // item_number
-  const [saving, setSaving] = useState(false) // doc key
-
-  async function saveNote(itemNumber, noteText) {
-    setSaving(true)
-    const existing = notes[itemNumber] || {}
-    await saveProcurementNote(itemNumber, {
-      note_procurement: noteText,
-      note_tapi: existing.note_tapi || '',
-      treatment_status: existing.treatment_status || '',
-    })
-    setNotes(prev => ({ ...prev, [itemNumber]: { ...existing, note_procurement: noteText } }))
-    setEditingNote(null)
-    setSaving(false)
-  }
+  const [viewNote, setViewNote] = useState(null)
 
   function getShortages(doc) {
     return allocation.filter(a =>
@@ -350,19 +358,16 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
                                           <td style={CS}>{po?.vendor_name||'—'}</td>
                                           <td style={CS}>{eta||'—'}</td>
                                           <td style={CS}>{po?(late?<span style={{color:'var(--red-dark)',fontWeight:600}}>איחור צפוי</span>:<span style={{color:'var(--green-dark)'}}>בזמן</span>):<span style={{color:'var(--red-dark)',fontWeight:600}}>אין הזמנת רכש</span>}</td>
-                                          <td style={{ ...CS, minWidth:160 }}>
-                                            {editingNote===s.item_number?(
-                                              <div style={{display:'flex',gap:4}}>
-                                                <input defaultValue={notes[s.item_number]?.note_procurement||''} id={`note-${s.item_number}`} style={{height:26,fontSize:11,flex:1}} autoFocus />
-                                                <button onClick={()=>saveNote(s.item_number,document.getElementById(`note-${s.item_number}`).value)} disabled={saving} style={{fontSize:11,padding:'2px 8px',background:'var(--blue-dark)',color:'#fff',border:'none',borderRadius:4,cursor:'pointer'}}>{saving?'...':'💾'}</button>
-                                                <button onClick={()=>setEditingNote(null)} style={{fontSize:11,padding:'2px 6px',background:'none',border:'0.5px solid var(--border-tbl)',borderRadius:4,cursor:'pointer'}}>✕</button>
-                                              </div>
-                                            ):(
-                                              <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                                                <span style={{fontSize:11,color:notes[s.item_number]?.note_procurement?'var(--text-main)':'var(--text-hint)'}}>{notes[s.item_number]?.note_procurement||'הוסף הערה...'}</span>
-                                                <button onClick={()=>setEditingNote(s.item_number)} style={{fontSize:11,padding:'1px 6px',background:'none',border:'0.5px solid var(--border-tbl)',borderRadius:4,cursor:'pointer',color:'var(--text-muted)'}}>✏️</button>
-                                              </div>
-                                            )}
+                                          <td style={CS}>
+                                            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                                              {notes[s.item_number]?.note_procurement && (
+                                                <span style={{fontSize:10,color:'#888',maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                                                  {notes[s.item_number].note_procurement}
+                                                </span>
+                                              )}
+                                              <button onClick={()=>setViewNote({itemNumber:s.item_number,note:notes[s.item_number]?.note_procurement||''})}
+                                                title='הצג הערה' style={{fontSize:14,padding:'1px 4px',background:'none',border:'none',cursor:'pointer',color:'#888'}}>🖊️</button>
+                                            </div>
                                           </td>
                                         </tr>
                                       )
