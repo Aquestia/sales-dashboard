@@ -126,5 +126,6 @@ table { border-collapse: collapse; width: 100%; }
 .kpi-card:hover { border-color: var(--blue); }
 .kpi-card.active { border-color: var(--blue-dark); background: var(--blue-bg); }
 .kpi-label { font-size: 11px; color: var(--text-muted); margin-bottom: 5px; }
-.kpi-value { font-size: 20px; font-weight: 600; }
+.kpi-value { font-size: 20px; font-weight: 600; color: var(--text-main); }
+.kpi-card { color: var(--text-main); }
 .kpi-sub { font-size: 11px; color: var(--text-hint); margin-top: 3px; }
