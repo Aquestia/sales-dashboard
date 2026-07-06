@@ -82,6 +82,7 @@ const COLS = [
         ))}
       </div>
 
+      <>
       {/* Daily bar chart */}
       {(() => {
         // Group by date
@@ -220,6 +221,7 @@ const COLS = [
         </table>
         {rows.length === 0 && <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>אין נתונים</div>}
       </div>
+      </>
     </div>
   )
 }
