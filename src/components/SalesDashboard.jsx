@@ -246,7 +246,7 @@ export default function SalesDashboard() {
             <thead>
               <tr>
                 {['חודש','סה"כ','פנימיים','חיצוניים','שורות'].map(h => (
-                  <th key={h} style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', borderBottom: '0.5px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ textAlign: 'center', padding: '8px 10px', color: 'var(--text-secondary)', borderBottom: '0.5px solid var(--border)', whiteSpace: 'nowrap', fontWeight:600 }}>{h}</th>
                 ))}
               </tr>
             </thead>
