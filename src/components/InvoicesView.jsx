@@ -47,6 +47,8 @@ const COLS = [
   }
   rows = [...rows].sort((a, b) => (b.invoice_date||'').localeCompare(a.invoice_date||''))
 
+  const [selDay, setSelDay] = useState(null)
+
   return (
     <div>
       {/* File selector */}
@@ -80,7 +82,105 @@ const COLS = [
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+      {/* Daily bar chart */}
+      {(() => {
+        // Group by date
+        const byDate = {}
+        invoices.forEach(r => {
+          const d = r.invoice_date || 'ללא תאריך'
+          if (!byDate[d]) byDate[d] = { date: d, amt: 0, cnt: 0, rows: [] }
+          byDate[d].amt += r.invoice_amount || 0
+          byDate[d].cnt += 1
+          byDate[d].rows.push(r)
+        })
+        const days = Object.values(byDate).sort((a,b) => a.date.localeCompare(b.date))
+        if (days.length === 0) return null
+
+        const BAR_W = 64, GAP = 20, H = 160, PAD_L = 70, PAD_B = 36, PAD_T = 48
+        const maxAmt = Math.max(...days.map(d => d.amt), 1)
+        const chartW = Math.max(PAD_L + days.length * (BAR_W + GAP) + GAP, 600)
+        return (
+          <div className="section-box" style={{ marginBottom:'1rem' }}>
+            <div className="section-title">חשבוניות יומי</div>
+            <div style={{ overflowX:'auto', textAlign:'center' }}>
+              <svg width={chartW} height={H + PAD_T + PAD_B} style={{ display:'inline-block', direction:'ltr' }}>
+                {[0, 0.25, 0.5, 0.75, 1].map(pct => {
+                  const y = PAD_T + H - pct * H
+                  return (
+                    <g key={pct}>
+                      <line x1={PAD_L} y1={y} x2={chartW} y2={y} stroke="#e5e5e0" strokeWidth={0.5} />
+                      <text x={PAD_L-6} y={y+4} textAnchor="end" fontSize={10} fill="#888">${fmt(pct*maxAmt)}</text>
+                    </g>
+                  )
+                })}
+                {days.map((d, i) => {
+                  const x = PAD_L + GAP + i * (BAR_W + GAP)
+                  const barH = Math.max(2, (d.amt / maxAmt) * H)
+                  const y = PAD_T + H - barH
+                  const active = selDay === d.date
+                  const dateLabel = d.date.length >= 10 ? d.date.slice(5).replace('-','.') : d.date
+                  return (
+                    <g key={d.date} style={{ cursor:'pointer' }} onClick={() => setSelDay(active ? null : d.date)}>
+                      <rect x={x} y={y} width={BAR_W} height={barH}
+                        fill={active ? '#185FA5' : '#378ADD'} rx={4} opacity={active?1:0.8} />
+                      <text x={x+BAR_W/2} y={y-18} textAnchor="middle" fontSize={10} fill="#555" fontWeight="600">
+                        {d.cnt} חשבוניות
+                      </text>
+                      <text x={x+BAR_W/2} y={y-5} textAnchor="middle" fontSize={10} fill={active?'#185FA5':'#378ADD'} fontWeight="600">
+                        ${fmt(d.amt)}
+                      </text>
+                      <text x={x+BAR_W/2} y={PAD_T+H+18} textAnchor="middle" fontSize={11} fill={active?'#185FA5':'#555'} fontWeight={active?'600':'400'}>
+                        {dateLabel}
+                      </text>
+                    </g>
+                  )
+                })}
+                <line x1={PAD_L} y1={PAD_T+H} x2={chartW} y2={PAD_T+H} stroke="#ccc" strokeWidth={1} />
+              </svg>
+            </div>
+
+            {/* Detail rows for selected day */}
+            {selDay && (() => {
+              const dayRows = byDate[selDay]?.rows || []
+              const dayAmt = dayRows.reduce((s,r)=>s+(r.invoice_amount||0),0)
+              return (
+                <div style={{ marginTop:12, borderTop:'0.5px solid var(--border-card)', paddingTop:12 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                    <div style={{ fontWeight:600, fontSize:14 }}>
+                      {selDay} — {dayRows.length} חשבוניות · ${fmt(dayAmt)}
+                    </div>
+                    <button onClick={()=>setSelDay(null)} style={{ fontSize:12, color:'var(--text-muted)', background:'none', border:'none', cursor:'pointer' }}>✕ סגור</button>
+                  </div>
+                  <div style={{ overflowX:'auto' }}>
+                    <table style={{ fontSize:12, width:'100%', borderCollapse:'collapse' }}>
+                      <thead>
+                        <tr>
+                          {['חשבונית','לקוח','שם לקוח','הזמנה','מטבע','סכום $','סוג'].map(h=>(
+                            <th key={h} style={{ textAlign:'right', padding:'6px 8px', color:'var(--text-muted)', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap', fontWeight:600 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...dayRows].sort((a,b)=>(b.invoice_amount||0)-(a.invoice_amount||0)).map((r,i)=>(
+                          <tr key={i} style={{ background: i%2===0?'var(--bg-row)':'var(--bg-card)' }}>
+                            <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap' }}>{r.invoice}</td>
+                            <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap' }}>{r.invoice_account}</td>
+                            <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap' }}>{r.name}</td>
+                            <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap' }}>{r.sales_order}</td>
+                            <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap' }}>{r.currency}</td>
+                            <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap', fontWeight:600 }}>${fmt(r.invoice_amount||0)}</td>
+                            <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap' }}>{r.cat==='Internal'?'פנימי':'חיצוני'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        )
+      })()}
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="חיפוש לפי חשבונית / לקוח / הזמנה..."
           style={{ width: 280 }} />
