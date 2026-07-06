@@ -1,15 +1,37 @@
-import { useState } from 'react'
-import { fmt, isInternal } from '../utils/helpers'
+import { useState, useEffect } from 'react'
+import { fmt } from '../utils/helpers'
+import { fetchSalesFiles, fetchInvoicesDetail } from '../utils/db'
+
+export default function InvoicesView() {
+  const [files, setFiles] = useState([])
+  const [selectedFileId, setSelectedFileId] = useState(null)
+  const [invoices, setInvoices] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [catFilter, setCatFilter] = useState('all')
+
+  useEffect(() => {
+    fetchSalesFiles().then(fs => {
+      setFiles(fs)
+      if (fs.length > 0) setSelectedFileId(fs[0].id)
+      else setLoading(false)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!selectedFileId) return
+    setLoading(true)
+    fetchInvoicesDetail(selectedFileId).then(inv => {
+      setInvoices(inv)
+      setLoading(false)
+    })
+  }, [selectedFileId])
 
 const COLS = [
   ['invoice','חשבונית'],['invoice_account','לקוח'],['name','שם לקוח'],
   ['sales_order','הזמנה'],['invoice_date','תאריך'],['currency','מטבע'],
   ['invoice_amount','סכום חשבוניות'],['cat','סוג']
 ]
-
-export default function InvoicesView({ invoices }) {
-  const [search, setSearch] = useState('')
-  const [catFilter, setCatFilter] = useState('all')
 
   const totalAmt = invoices.reduce((s, r) => s + (r.invoice_amount || 0), 0)
 
@@ -27,6 +49,23 @@ export default function InvoicesView({ invoices }) {
 
   return (
     <div>
+      {/* File selector */}
+      {files.length > 0 && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:'1.25rem', flexWrap:'wrap' }}>
+          <span style={{ fontSize:13, color:'var(--text-secondary)', whiteSpace:'nowrap' }}>קובץ פעיל:</span>
+          {files.map(f => (
+            <button key={f.id} onClick={() => setSelectedFileId(f.id)}
+              style={{ padding:'6px 14px', borderRadius:'var(--radius)', fontSize:12,
+                border:'0.5px solid '+(selectedFileId===f.id?'var(--blue-dark)':'var(--border-card)'),
+                background:selectedFileId===f.id?'var(--blue-bg)':'var(--bg-row)',
+                color:selectedFileId===f.id?'var(--blue-dark)':'var(--text-main)',
+                cursor:'pointer', fontWeight:selectedFileId===f.id?600:400 }}>
+              {f.batch_date} · {f.filename}
+            </button>
+          ))}
+          {loading && <span style={{ fontSize:12, color:'var(--text-muted)' }}>טוען...</span>}
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px,1fr))', gap: 12, marginBottom: '1.5rem' }}>
         {[
           { label: 'סה"כ חשבוניות', value: '$' + fmt(totalAmt), sub: invoices.length + ' חשבוניות' },

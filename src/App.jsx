@@ -63,7 +63,7 @@ export default function App() {
         {page === 'monthly'    && loaded && <MonthlyStatusView production={data.production} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'sales'      && loaded && <SalesDashboard />}
         {page === 'bo'         && loaded && <BOView bo={data.bo} allocation={data.allocation} purchaseOrders={data.purchaseOrders} procurementNotes={data.procurementNotes} production={data.production} salesOrders={data.salesOrders} dr4={data.dr4} dr5={data.dr5} />}
-        {page === 'invoices'   && loaded && <InvoicesView invoices={data.invoicesDetail} />}
+        {page === 'invoices'   && loaded && <InvoicesView />}
         {page === 'production' && loaded && <ProductionView production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'customer'   && loaded && <CustomerCard customers={data.customers} salesOrders={data.salesOrders} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'custinfo'   && loaded && <CustomerInfoView customers={data.customers} />}
