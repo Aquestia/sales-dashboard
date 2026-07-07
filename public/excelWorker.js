@@ -277,7 +277,22 @@ self.onmessage = function (e) {
         unconfirmed: safeNum(r['Unconfirmed $'])
       })).filter(r => r.doc)
 
-      postMessage({ type: 'done', fileType: 'main', customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo })
+      // תעודות משלוח ללא חשבוניות (לשונית חדשה — אופציונלית לתאימות לאחור)
+      const dnRows = wb.Sheets['תעודות משלוח'] ? readSheet(wb, 'תעודות משלוח') : []
+      postMessage({ type: 'progress', msg: `עיבוד ${dnRows.length} תעודות משלוח...` })
+      const deliveryNotes = dnRows.map(r => ({
+        customer: safeStr(r['Customer']),
+        sales_order: safeStr(r['Sales order']),
+        line_number: safeNum(r['Line number']),
+        item_number: safeStr(r['Item number']),
+        ship_date: safeDate(r['Ship date']),
+        quantity: safeNum(r['Quantity']),
+        currency: (safeStr(r['Currency']) || 'ILS').toUpperCase(),
+        unit_price: safeNum(r['Unit price']),
+        cat: isInternal(r['Customer']) ? 'Internal' : 'External'
+      })).filter(r => r.customer && r.sales_order)
+
+      postMessage({ type: 'done', fileType: 'main', customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo, deliveryNotes })
     }
 
   } catch (err) {
