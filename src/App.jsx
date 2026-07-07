@@ -9,6 +9,7 @@ import BOView from './components/BOView'
 import SnapshotView from './components/SnapshotView'
 import MonthlyStatusView from './components/MonthlyStatusView'
 import FileUpload from './components/FileUpload'
+import DeliveryNotesView from './components/DeliveryNotesView'
 import {
   fetchCustomers, fetchSalesOrders, fetchProduction,
   fetchAllocation, fetchPurchaseOrders, fetchDR4, fetchDR5,
@@ -64,6 +65,7 @@ export default function App() {
         {page === 'sales'      && loaded && <SalesDashboard />}
         {page === 'bo'         && loaded && <BOView bo={data.bo} allocation={data.allocation} purchaseOrders={data.purchaseOrders} procurementNotes={data.procurementNotes} production={data.production} salesOrders={data.salesOrders} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'invoices'   && loaded && <InvoicesView />}
+        {page === 'delivery'   && loaded && <DeliveryNotesView />}
         {page === 'production' && loaded && <ProductionView production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'customer'   && loaded && <CustomerCard customers={data.customers} salesOrders={data.salesOrders} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'custinfo'   && loaded && <CustomerInfoView customers={data.customers} />}
