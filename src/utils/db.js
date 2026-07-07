@@ -37,7 +37,7 @@ export async function uploadSnapshot(plan, niso, invoices) {
   await insertChunked('sales_invoices', invoices)
 }
 
-export async function uploadMain({ filename, customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo }) {
+export async function uploadMain({ filename, customers, salesOrders, production, allocation, purchaseOrders, dr4, dr5, invoicesDetail, bo, deliveryNotes }) {
   await upsertChunked('sales_customers', customers, 'customer_account')
 
   // Create file record and get id
@@ -58,6 +58,11 @@ export async function uploadMain({ filename, customers, salesOrders, production,
   await supabase.from('sales_invoices_detail').delete().eq('file_id', fileId)
   if (invoicesWithFileId.length) await insertChunked('sales_invoices_detail', invoicesWithFileId)
   await clearAndInsert('sales_bo', bo)
+
+  // תעודות משלוח ללא חשבוניות — נשמר לפי file_id (כמו הזמנות)
+  const dnWithFileId = (deliveryNotes || []).map(r => ({ ...r, file_id: fileId }))
+  await supabase.from('sales_delivery_notes').delete().eq('file_id', fileId)
+  if (dnWithFileId.length) await insertChunked('sales_delivery_notes', dnWithFileId)
 }
 
 // ─── Read ─────────────────────────────────────────────────────────
@@ -136,6 +141,33 @@ export async function fetchInvoicesDetail(fileId = null) {
 }
 
 
+export async function fetchDeliveryNotes(fileId = null) {
+  let targetFileId = fileId
+  if (!targetFileId) {
+    const { data: files } = await supabase
+      .from('sales_files')
+      .select('id')
+      .order('uploaded_at', { ascending: false })
+      .limit(1)
+    if (!files || files.length === 0) return []
+    targetFileId = files[0].id
+  }
+  let all = [], from = 0, size = 1000
+  while (true) {
+    const { data, error } = await supabase
+      .from('sales_delivery_notes')
+      .select('*')
+      .eq('file_id', targetFileId)
+      .range(from, from + size - 1)
+    if (error) throw new Error(error.message)
+    if (!data || data.length === 0) break
+    all = all.concat(data)
+    if (data.length < size) break
+    from += size
+  }
+  return all
+}
+
 export async function createSalesFile(filename) {
   // Try to extract date from filename (e.g. "02.07.2026.xlsx" → "2026-07-02")
   let batchDate = new Date().toISOString().split('T')[0]
@@ -162,8 +194,9 @@ export async function pruneSalesFiles() {
     .order('uploaded_at', { ascending: false })
   if (!files || files.length <= 2) return
   const toDelete = files.slice(2).map(f => f.id)
-  // Delete associated orders first
+  // Delete associated orders + delivery notes first
   await supabase.from('sales_open_orders').delete().in('file_id', toDelete)
+  await supabase.from('sales_delivery_notes').delete().in('file_id', toDelete)
   await supabase.from('sales_files').delete().in('id', toDelete)
 }
 
@@ -230,6 +263,7 @@ export async function saveProcurementNote(itemNumber, fields) {
 
 export async function deleteSalesFile(fileId) {
   await supabase.from('sales_open_orders').delete().eq('file_id', fileId)
+  await supabase.from('sales_delivery_notes').delete().eq('file_id', fileId)
   await supabase.from('sales_files').delete().eq('id', fileId)
 }
 
