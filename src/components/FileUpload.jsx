@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { uploadSnapshot, uploadMain, fetchSalesFiles, deleteSalesFile, updateSalesFileLabel } from '../utils/db'
 
 const FILE_TYPES = [
-  { key: 'main',     label: 'קובץ ראשי (check_data)',  hint: 'לשוניות: Customers / Sales orders / Production / Calculated Allocation / Open Purchase Orders / DR4 / DR5 / Invoices / BO' },
+  { key: 'main',     label: 'קובץ ראשי (check_data)',  hint: 'לשוניות: Customers / Sales orders / Production / Calculated Allocation / Open Purchase Orders / DR4 / DR5 / Invoices / BO / תעודות משלוח' },
   { key: 'snapshot', label: 'דוח מכירות יומי',         hint: 'לשוניות: שורות הזמנה / NISO / דוח חשבוניות' },
 ]
 
@@ -70,7 +70,7 @@ export default function FileUpload() {
                 `✓ הועלו: ${me.data.customers.length} לקוחות · ${me.data.salesOrders.length} הזמנות · ` +
                 `${me.data.production.length} פק"עות · ${me.data.allocation.length} חוסרים · ` +
                 `${me.data.purchaseOrders.length} הזמנות רכש · ${me.data.dr4.length} DR4 · ` +
-                `${me.data.dr5.length} DR5 · ${me.data.invoicesDetail.length} חשבוניות · ${me.data.bo.length} BO`
+                `${me.data.dr5.length} DR5 · ${me.data.invoicesDetail.length} חשבוניות · ${me.data.bo.length} BO · ${(me.data.deliveryNotes||[]).length} תעודות משלוח`
               )
             }
           } catch (err) {
