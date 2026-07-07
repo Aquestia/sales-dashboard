@@ -6,6 +6,7 @@ const NAV = [
       { key: 'monthly',  icon: '📋', label: 'מצב הזמנות יומי' },
       { key: 'bo',       icon: '⚠️', label: 'Back Orders' },
       { key: 'invoices', icon: '🧾', label: 'חשבוניות' },
+      { key: 'delivery', icon: '🚚', label: 'תעודות משלוח ללא חשבוניות' },
     ]
   },
   {
