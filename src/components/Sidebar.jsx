@@ -19,7 +19,7 @@ const NAV = [
   {
     group: 'דוח יומי',
     items: [
-      { key: 'snapshot', icon: '📅', label: 'תוכנית / משלוח / חשבוניות' },
+      { key: 'shipplan', icon: '🚢', label: 'תוכנית משלוחים' },
     ]
   },
   {

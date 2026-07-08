@@ -136,6 +136,7 @@ self.onmessage = function (e) {
         family: safeStr(r['Family']),
         confirmed_ship_date: safeDate(r['Confirmed ship date']),
         requested_ship_date: safeDate(r['Requested ship date']),
+        container_date: safeDate(r['Container date']),
         ordered_quantity: safeNum(r['Ordered quantity']),
         deliver_remainder: safeNum(r['Deliver remainder']),
         qty_picked: safeNum(r['Quantity picked']),

@@ -5,7 +5,7 @@ import CustomerCard from './components/CustomerCard'
 import CustomerInfoView from './components/CustomerInfoView'
 import InvoicesView from './components/InvoicesView'
 import BOView from './components/BOView'
-import SnapshotView from './components/SnapshotView'
+import ShipmentPlanView from './components/ShipmentPlanView'
 import MonthlyStatusView from './components/MonthlyStatusView'
 import FileUpload from './components/FileUpload'
 import DeliveryNotesView from './components/DeliveryNotesView'
@@ -17,7 +17,7 @@ import {
 import './App.css'
 
 export default function App() {
-  const VALID_PAGES = ['sales', 'monthly', 'bo', 'invoices', 'delivery', 'customer', 'custinfo', 'snapshot', 'upload']
+  const VALID_PAGES = ['sales', 'monthly', 'bo', 'invoices', 'delivery', 'customer', 'custinfo', 'shipplan', 'upload']
   const [page, setPage] = useState(() => {
     const saved = localStorage.getItem('sales_active_page')
     return VALID_PAGES.includes(saved) ? saved : 'sales'
@@ -57,7 +57,7 @@ export default function App() {
     })
   }
 
-  const loading = !loaded && page !== 'snapshot' && page !== 'upload'
+  const loading = !loaded && page !== 'upload'
 
   return (
     <div className="layout" dir="rtl">
@@ -71,7 +71,7 @@ export default function App() {
         {page === 'delivery'   && loaded && <DeliveryNotesView />}
         {page === 'customer'   && loaded && <CustomerCard customers={data.customers} salesOrders={data.salesOrders} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'custinfo'   && loaded && <CustomerInfoView customers={data.customers} />}
-        {page === 'snapshot'   && <SnapshotView />}
+        {page === 'shipplan'   && loaded && <ShipmentPlanView salesOrders={data.salesOrders} customers={data.customers} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} procurementNotes={data.procurementNotes} />}
         {page === 'upload'     && <FileUpload onUploaded={reload} />}
       </main>
     </div>
