@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import Sidebar from './components/Sidebar'
 import SalesDashboard from './components/SalesDashboard'
 import CustomerCard from './components/CustomerCard'
-import ProductionView from './components/ProductionView'
 import CustomerInfoView from './components/CustomerInfoView'
 import InvoicesView from './components/InvoicesView'
 import BOView from './components/BOView'
@@ -18,7 +17,11 @@ import {
 import './App.css'
 
 export default function App() {
-  const [page, setPage] = useState(() => localStorage.getItem('sales_active_page') || 'sales')
+  const VALID_PAGES = ['sales', 'monthly', 'bo', 'invoices', 'delivery', 'customer', 'custinfo', 'snapshot', 'upload']
+  const [page, setPage] = useState(() => {
+    const saved = localStorage.getItem('sales_active_page')
+    return VALID_PAGES.includes(saved) ? saved : 'sales'
+  })
 
   function handleNav(key) {
     localStorage.setItem('sales_active_page', key)
@@ -66,7 +69,6 @@ export default function App() {
         {page === 'bo'         && loaded && <BOView bo={data.bo} allocation={data.allocation} purchaseOrders={data.purchaseOrders} procurementNotes={data.procurementNotes} production={data.production} salesOrders={data.salesOrders} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'invoices'   && loaded && <InvoicesView />}
         {page === 'delivery'   && loaded && <DeliveryNotesView />}
-        {page === 'production' && loaded && <ProductionView production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'customer'   && loaded && <CustomerCard customers={data.customers} salesOrders={data.salesOrders} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} />}
         {page === 'custinfo'   && loaded && <CustomerInfoView customers={data.customers} />}
         {page === 'snapshot'   && <SnapshotView />}

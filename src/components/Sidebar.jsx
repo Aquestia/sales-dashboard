@@ -10,12 +10,6 @@ const NAV = [
     ]
   },
   {
-    group: 'ייצור',
-    items: [
-      { key: 'production', icon: '🏭', label: 'תכנון ייצור' },
-    ]
-  },
-  {
     group: 'לקוחות',
     items: [
       { key: 'customer', icon: '🔍', label: 'כרטיס לקוח' },
