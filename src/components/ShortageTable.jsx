@@ -7,8 +7,7 @@ export default function ShortageTable({ prodNumber, allocation, purchaseOrders }
   function bestPO(itemNumber) {
     const candidates = purchaseOrders.filter(p =>
       p.item_number === itemNumber &&
-      p.deliver_remainder > 0 &&
-      p.document_status !== 'Invoice'
+      p.deliver_remainder > 0
     )
     if (!candidates.length) return null
     return candidates.sort((a, b) => {

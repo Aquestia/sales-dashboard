@@ -217,8 +217,7 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
   function bestPO(itemNumber) {
     const candidates = purchaseOrders.filter(p =>
       p.item_number === String(itemNumber) &&
-      p.deliver_remainder > 0 &&
-      p.document_status !== 'Invoice'
+      p.deliver_remainder > 0
     )
     return candidates.sort((a, b) => {
       const da = a.confirmed_receipt_date || a.requested_receipt_date || '9999'
