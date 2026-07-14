@@ -273,3 +273,34 @@ export async function updateSalesFileLabel(fileId, filename, batchDate) {
     .eq('id', fileId)
   if (error) throw new Error(error.message)
 }
+
+// ─── Urgent orders (הזמנות דחופות למעקב) ──────────────────────────
+export async function fetchUrgent() {
+  const { data } = await supabase.from('sales_urgent').select('*')
+  return data || []
+}
+
+// rows: [{ sales_order, line_number, customer_account, customer_name, is_internal }]
+export async function markUrgent(rows) {
+  const payload = rows.map(r => ({
+    sales_order: String(r.sales_order),
+    line_number: String(r.line_number ?? ''),
+    customer_account: r.customer_account ?? '',
+    customer_name: r.customer_name ?? '',
+    is_internal: !!r.is_internal,
+    marked_at: new Date().toISOString(),
+  }))
+  const { error } = await supabase.from('sales_urgent').upsert(payload, { onConflict: 'sales_order,line_number' })
+  if (error) throw new Error('sales_urgent: ' + error.message)
+}
+
+export async function unmarkUrgentLine(salesOrder, lineNumber) {
+  const { error } = await supabase.from('sales_urgent').delete()
+    .eq('sales_order', String(salesOrder)).eq('line_number', String(lineNumber ?? ''))
+  if (error) throw new Error('sales_urgent: ' + error.message)
+}
+
+export async function unmarkUrgentOrder(salesOrder) {
+  const { error } = await supabase.from('sales_urgent').delete().eq('sales_order', String(salesOrder))
+  if (error) throw new Error('sales_urgent: ' + error.message)
+}
