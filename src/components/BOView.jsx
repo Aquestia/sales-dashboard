@@ -17,7 +17,7 @@ function monthLabel(key) {
 const DETAIL_COLS = [
   ['doc','הזמנה'], ['line','שורה'], ['customer','לקוח'], ['item_code','מק"ט'],
   ['requested_date','תאריך מבוקש'], ['back_orders_amount','Back Order $'],
-  ['open_sales_amount','שווי פתוח'], ['past_due','פיגור $'], ['sales_status','סטטוס']
+  ['open_sales_amount','שווי פתוח'], ['past_due','פיגור $'], ['sales_status','סטטוס'], ['note','הערה']
 ]
 
 export default function BOView({ bo, allocation = [], purchaseOrders = [], procurementNotes = {}, production = [], salesOrders = [], dr4 = [], dr5 = [] }) {
@@ -286,6 +286,10 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
                             ? <span style={{ fontWeight: 500, color: 'var(--red-dark)' }}>${fmt(r[k] || 0)}</span>
                             : k === 'open_sales_amount' || k === 'past_due'
                             ? '$' + fmt(r[k] || 0)
+                            : k === 'note'
+                            ? (r.note
+                                ? <span title={r.note} style={{ display: 'inline-block', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>{r.note}</span>
+                                : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>אין הערה</span>)
                             : (r[k] ?? '')}
                         </td>
                       ))}
