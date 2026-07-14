@@ -276,7 +276,7 @@ self.onmessage = function (e) {
         open_sales_amount: safeNum(r['Open Sales Amount USD']),
         past_due: safeNum(r['Past Due $']),
         unconfirmed: safeNum(r['Unconfirmed $']),
-        note: safeStr(r['Notes'] || r['Note'] || r['Notes $'] || r['הערות'] || r['הערה'] || r['Remark'] || r['Remarks'] || r['Comment'] || r['Comments'] || '')
+        note: safeStr(r['NOTES'] || r['Notes'] || r['Note'] || r['הערות'] || r['הערה'] || r['Remark'] || r['Comment'] || '')
       })).filter(r => r.doc)
 
       // תעודות משלוח ללא חשבוניות (לשונית חדשה — אופציונלית לתאימות לאחור)
