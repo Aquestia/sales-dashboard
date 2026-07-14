@@ -392,12 +392,6 @@ function OrderTable({ rows, dateField, allocation, purchaseOrders, procurementNo
     return m
   }, [salesOrders])
 
-  const soProductionMap = useMemo(() => {
-    const m = {}
-    salesOrders.forEach(o => { m[o.sales_order] = o.production_number })
-    return m
-  }, [salesOrders])
-
   const allocByNumber = useMemo(() => {
     const m = {}
     allocation.forEach(a => {
@@ -480,7 +474,7 @@ function OrderTable({ rows, dateField, allocation, purchaseOrders, procurementNo
                           <>
                             {/* חוסרי ייצור */}
                             {prodItems.length > 0 && (() => {
-                              const mainPrd = soProductionMap[r.sales_order]
+                              const mainPrd = r.production_number
                               const subOrders = [
                                 ...(dr4ByParent[mainPrd] || []).filter(d => !DONE.includes(d.status)).map(d => ({ ...d, type: 'עב"ש' })),
                                 ...(dr5ByParent[mainPrd] || []).filter(d => !DONE.includes(d.status)).map(d => ({ ...d, type: 'צבע' }))

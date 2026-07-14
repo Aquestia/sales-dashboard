@@ -114,12 +114,6 @@ function UrgentCustomerGroup({ grp, allocation, purchaseOrders, procurementNotes
     return m
   }, [salesOrders])
 
-  const soProductionMap = useMemo(() => {
-    const m = {}
-    salesOrders.forEach(o => { m[o.sales_order] = o.production_number })
-    return m
-  }, [salesOrders])
-
   const dr4ByParent = useMemo(() => {
     const m = {}
     dr4.forEach(d => { const k = d.parent_production_order; if (!m[k]) m[k] = []; m[k].push({ ...d, type: 'עב"ש' }) })
@@ -238,7 +232,7 @@ function UrgentCustomerGroup({ grp, allocation, purchaseOrders, procurementNotes
                           <td colSpan={DETAIL_COLS.length + 2} style={{ padding: '8px 12px', background: '#fefcf8', borderBottom: '0.5px solid var(--border-tbl)' }}>
                             {prodItems.length > 0 && (() => {
                               const DONE = ['Ended', 'Reported as finished']
-                              const mainPrd = soProductionMap[r.sales_order]
+                              const mainPrd = r.production_number
                               const subOrders = [
                                 ...(dr4ByParent[mainPrd] || []).filter(d => !DONE.includes(d.status)),
                                 ...(dr5ByParent[mainPrd] || []).filter(d => !DONE.includes(d.status))
