@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import * as XLSX from 'xlsx-js-style'
 import { fetchLocalItems, fetchLocalPlan, fetchLocalStock } from '../utils/db'
 
 const COLORS = {
@@ -31,6 +32,89 @@ function prioPill(p) {
   if (p === 188) return { t: 'לא משובץ', bg: '#FAEEDA', c: '#9A6A12' }
   if (p === 161) return { t: 'קבלנות', bg: '#F0E9F7', c: '#6A3D8F' }
   return { t: 'ש׳' + p, bg: '#EEF2F6', c: '#3A4A5C' }
+}
+
+// ── ייצוא אקסל מעוצב ──
+const HEX = { red: 'FFA32D2D', orange: 'FF854F0B', green: 'FF2F7D4F', violet: 'FF7D3C98' }
+const BG  = { red: 'FFFCEBEB', orange: 'FFFAEEDA', green: 'FFEAF3DE', violet: 'FFF2E9F6' }
+const HEAD_FILL = 'FF2B6CA3'
+
+function styleHeader(ws, ncols) {
+  const R = XLSX.utils.decode_range(ws['!ref'])
+  for (let c = 0; c < ncols; c++) {
+    const addr = XLSX.utils.encode_cell({ r: 0, c })
+    if (!ws[addr]) continue
+    ws[addr].s = {
+      fill: { patternType: 'solid', fgColor: { rgb: HEAD_FILL } },
+      font: { bold: true, color: { rgb: 'FFFFFFFF' }, sz: 11 },
+      alignment: { horizontal: 'center', vertical: 'center', readingOrder: 2 },
+      border: thin(),
+    }
+  }
+  return R
+}
+function thin() {
+  const s = { style: 'thin', color: { rgb: 'FFCDDAE6' } }
+  return { top: s, bottom: s, left: s, right: s }
+}
+function downloadWB(wb, name) {
+  XLSX.writeFile(wb, name, { bookType: 'xlsx' })
+}
+
+function exportStatus(rows, prds) {
+  const aoa = [['מק"ט', 'תיאור', 'משפחה', 'מלאי', 'מינימום', 'מקסימום', 'סטטוס מלאי', 'כמות בייצור', 'מס׳ פק"עות', 'שבועות']]
+  rows.forEach(i => {
+    const wk = [...new Set(prds.filter(p => p.item_number === i.item).map(p => p.prio))].sort((a, b) => a - b).map(prioLabel).join(', ')
+    aoa.push([i.item, i.name, i.family, i.stock, i.min, i.max, COLORS[i.color].label, i.prdQty || '', i.prdCount || '', wk])
+  })
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!cols'] = [{ wch: 20 }, { wch: 46 }, { wch: 14 }, { wch: 8 }, { wch: 9 }, { wch: 10 }, { wch: 15 }, { wch: 11 }, { wch: 11 }, { wch: 22 }]
+  ws['!views'] = [{ rightToLeft: true }]
+  styleHeader(ws, 10)
+  // צביעת עמודת מלאי (D) + תא סטטוס (G) לפי הקטגוריה
+  rows.forEach((i, idx) => {
+    const r = idx + 1
+    ;['D', 'G'].forEach(col => {
+      const addr = col + (r + 1)
+      if (!ws[addr]) return
+      ws[addr].s = {
+        fill: { patternType: 'solid', fgColor: { rgb: BG[i.color] } },
+        font: { color: { rgb: HEX[i.color] }, bold: col === 'D' },
+        alignment: { horizontal: 'center', readingOrder: 2 }, border: thin(),
+      }
+    })
+  })
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'סטטוס מוצרים')
+  downloadWB(wb, 'מלאי_שוק_מקומי_סטטוס.xlsx')
+}
+
+function exportMatrix(items, cols, cellSum, prds, sheetName, fileName) {
+  const rows = items.filter(i => i.prdCount > 0).sort((a, b) => b.prdCount - a.prdCount || a.item.localeCompare(b.item))
+  const activeCols = cols.filter(c => rows.some(i => cellSum(i.item, c) > 0))
+  const header = ['מק"ט', 'שם', 'משפחה', ...activeCols.map(prioLabel), 'Σ סה"כ']
+  const aoa = [header]
+  rows.forEach(i => {
+    let tot = 0
+    const cells = activeCols.map(c => { const s = cellSum(i.item, c); tot += s; return s || '' })
+    aoa.push([i.item, i.name, i.family, ...cells, tot])
+  })
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!cols'] = [{ wch: 20 }, { wch: 42 }, { wch: 13 }, ...activeCols.map(() => ({ wch: 13 })), { wch: 10 }]
+  ws['!views'] = [{ rightToLeft: true }]
+  styleHeader(ws, header.length)
+  // מרכוז תאי הכמויות + גבולות
+  for (let r = 1; r < aoa.length; r++) {
+    for (let c = 3; c < header.length; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c })
+      if (!ws[addr]) continue
+      ws[addr].s = { alignment: { horizontal: 'center', readingOrder: 2 }, border: thin(),
+        font: { bold: c === header.length - 1 } }
+    }
+  }
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, sheetName)
+  downloadWB(wb, fileName)
 }
 
 export default function LocalMarketView() {
@@ -152,6 +236,7 @@ export default function LocalMarketView() {
               <option value="">כל המשפחות</option>{families.map(f => <option key={f}>{f}</option>)}
             </select>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="חיפוש מק״ט / תיאור…" style={{ ...selStyle, marginRight: 'auto', width: 200 }} />
+            <button onClick={() => exportStatus(statusRows, prds)} style={exportBtnStyle}>⬇ ייצוא לאקסל</button>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={tblStyle}>
@@ -189,6 +274,7 @@ export default function LocalMarketView() {
             <select value={planFam} onChange={e => setPlanFam(e.target.value)} style={selStyle}>
               <option value="">כל המשפחות</option>{[FIRE, ...families.filter(f => f !== FIRE)].map(f => <option key={f}>{f}</option>)}
             </select>
+            <button onClick={() => exportMatrix(enriched.filter(i => planFam ? i.family === planFam : true), cols, cellSum, prds, 'תכנון ייצור', 'מלאי_שוק_מקומי_תכנון.xlsx')} style={{ ...exportBtnStyle, marginRight: 'auto' }}>⬇ ייצוא לאקסל</button>
           </div>
           <div style={{ overflowX: 'auto', border: '1px solid #CDDAE6', borderRadius: 10 }}>
             <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>
@@ -216,7 +302,10 @@ export default function LocalMarketView() {
 
       {tab === 'fire' && (
         <div style={panelStyle}>
-          <p style={{ fontSize: 13.5, color: 'var(--text-muted)', marginBottom: 14 }}>מק״טי כיבוי אש עם פק״ע פתוחה. לחץ על כמות לפירוט הפק״עות.</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: 0 }}>מק״טי כיבוי אש עם פק״ע פתוחה. לחץ על כמות לפירוט הפק״עות.</p>
+            <button onClick={() => exportMatrix(enriched.filter(i => i.family === FIRE), cols, cellSum, prds, 'כיבוי אש', 'מלאי_שוק_מקומי_כיבוי_אש.xlsx')} style={exportBtnStyle}>⬇ ייצוא לאקסל</button>
+          </div>
           <Matrix items={enriched.filter(i => i.family === FIRE)} cols={cols} cellSum={cellSum} openPrd={openPrd} fire />
         </div>
       )}
@@ -227,6 +316,7 @@ export default function LocalMarketView() {
             <select value={restFam} onChange={e => setRestFam(e.target.value)} style={selStyle}>
               <option value="">כל המשפחות (חוץ מכיבוי אש)</option>{families.filter(f => f !== FIRE).map(f => <option key={f}>{f}</option>)}
             </select>
+            <button onClick={() => exportMatrix(enriched.filter(i => restFam ? i.family === restFam : i.family !== FIRE), cols, cellSum, prds, 'שאר המוצרים', 'מלאי_שוק_מקומי_שאר.xlsx')} style={{ ...exportBtnStyle, marginRight: 'auto' }}>⬇ ייצוא לאקסל</button>
           </div>
           <Matrix items={enriched.filter(i => restFam ? i.family === restFam : i.family !== FIRE)} cols={cols} cellSum={cellSum} openPrd={openPrd} />
         </div>
@@ -331,6 +421,7 @@ function SectionTitle({ icon, title, sub, top }) {
   )
 }
 
+const exportBtnStyle = { padding: '8px 14px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: '0.5px solid #1A6E3A', background: '#EAF3DE', color: '#1A6E3A', display: 'inline-flex', alignItems: 'center', gap: 6 }
 // ── styles ──
 const panelStyle = { background: 'var(--bg-card)', border: '0.5px solid var(--border-card)', borderRadius: 14, padding: '20px 22px' }
 const ctrlStyle = { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }
