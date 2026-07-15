@@ -170,11 +170,9 @@ export default function LocalMarketView() {
                       <td style={tdStyle}><span style={badge(i.color)}>{COLORS[i.color].label}</span></td>
                       <td style={tdStyle}>
                         {i.prdCount === 0 ? <span style={{ color: '#CCC' }}>—</span> : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', whiteSpace: 'nowrap' }}>
                             <span style={{ fontSize: 11, fontWeight: 600, color: '#185FA5', background: '#E6F1FB', padding: '2px 9px', borderRadius: 100 }}>{i.prdQty} יח׳ · {i.prdCount} פק״ע</span>
-                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                              {iprios.map(p => { const pp = prioPill(p); return <span key={p} style={{ fontSize: 10.5, fontWeight: 600, padding: '1px 7px', borderRadius: 5, fontFamily: 'var(--mono)', background: pp.bg, color: pp.c }}>{pp.t}</span> })}
-                            </div>
+                            {iprios.map(p => { const pp = prioPill(p); return <span key={p} style={{ fontSize: 10.5, fontWeight: 600, padding: '1px 7px', borderRadius: 5, fontFamily: 'var(--mono)', background: pp.bg, color: pp.c }}>{pp.t}</span> })}
                           </div>
                         )}
                       </td>
