@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { uploadSnapshot, uploadMain, fetchSalesFiles, deleteSalesFile, updateSalesFileLabel } from '../utils/db'
+import { uploadSnapshot, uploadMain, uploadLocalMarket, fetchSalesFiles, deleteSalesFile, updateSalesFileLabel } from '../utils/db'
 
 const FILE_TYPES = [
   { key: 'main',     label: 'קובץ ראשי (check_data)',  hint: 'לשוניות: Customers / Sales orders / Production / Calculated Allocation / Open Purchase Orders / DR4 / DR5 / Invoices / BO / תעודות משלוח' },
   { key: 'snapshot', label: 'דוח מכירות יומי',         hint: 'לשוניות: שורות הזמנה / NISO / דוח חשבוניות' },
+  { key: 'localmarket', label: 'מלאי שוק מקומי',       hint: 'לשוניות: תוכנית / מק"טים / מלאי בנמצא' },
 ]
 
 export default function FileUpload() {
@@ -64,6 +65,9 @@ export default function FileUpload() {
             if (me.data.fileType === 'snapshot') {
               await uploadSnapshot(me.data.plan, me.data.niso, me.data.invoices)
               addMsg('success', `✓ הועלו: ${me.data.plan.length} תוכנית · ${me.data.niso.length} NISO · ${me.data.invoices.length} חשבוניות`)
+            } else if (me.data.fileType === 'localmarket') {
+              await uploadLocalMarket({ items: me.data.items, plan: me.data.plan, stock: me.data.stock })
+              addMsg('success', `✓ הועלו: ${me.data.items.length} מק"טים · ${me.data.plan.length} פק"עות · ${me.data.stock.length} שורות מלאי`)
             } else if (me.data.fileType === 'main') {
               await uploadMain({ filename: file.name, ...me.data })
               addMsg('success',

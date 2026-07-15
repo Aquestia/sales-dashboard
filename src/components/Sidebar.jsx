@@ -24,6 +24,12 @@ const NAV = [
     ]
   },
   {
+    group: 'ייצור',
+    items: [
+      { key: 'localmarket', icon: '🏭', label: 'מלאי שוק מקומי' },
+    ]
+  },
+  {
     group: 'ניהול',
     items: [
       { key: 'upload', icon: '📁', label: 'העלאת קובץ' },

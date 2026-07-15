@@ -42,6 +42,49 @@ self.onmessage = function (e) {
     const wb = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true })
     postMessage({ type: 'progress', msg: 'לשוניות: ' + wb.SheetNames.join(', ') })
 
+    if (fileType === 'localmarket') {
+      // קובץ מלאי שוק מקומי — 3 לשוניות
+      const planRows  = readSheet(wb, 'תוכנית')
+      const itemRows  = readSheet(wb, 'מק"טים')
+      const stockRows = readSheet(wb, 'מלאי בנמצא')
+
+      postMessage({ type: 'progress', msg: `עיבוד מק"טים (${itemRows.length} שורות)...` })
+      const items = itemRows.map(r => ({
+        item_number: safeStr(r['מק"ט']),
+        description: safeStr(r['תיאור פריט']),
+        stock:   safeNum(r['מלאי']),
+        min_qty: safeNum(r['מינימום']),
+        max_qty: safeNum(r['מקסימום']),
+        family:  safeStr(r['משפחה']),
+      })).filter(r => r.item_number)
+
+      postMessage({ type: 'progress', msg: `עיבוד תוכנית ייצור (${planRows.length} שורות)...` })
+      const plan = planRows.map(r => ({
+        production: safeStr(r['Production']),
+        item_number: safeStr(r['Item number']),
+        name: safeStr(r['Name']),
+        quantity: safeNum(r['Quantity']),
+        planning_priority: safeNum(r['Planning priority']),
+        status: safeStr(r['Status']),
+        components_in_station: safeStr(r['Components in station']),
+        estimated_run_time: safeNum(r['Estimated run time']),
+        planning_comment: safeStr(r['Planning Comment']),
+        start_date: safeDate(r['Start date']),
+      })).filter(r => r.item_number)
+
+      postMessage({ type: 'progress', msg: `עיבוד מלאי בנמצא (${stockRows.length} שורות)...` })
+      const stock = stockRows.map(r => ({
+        item_number: safeStr(r['Item number']),
+        warehouse: safeStr(r['Warehouse']),
+        location: safeStr(r['Location']),
+        physical_inventory: safeNum(r['Physical inventory']),
+        total_available: safeNum(r['Total available']),
+      })).filter(r => r.item_number)
+
+      postMessage({ type: 'done', fileType: 'localmarket', items, plan, stock })
+      return
+    }
+
     if (fileType === 'snapshot') {
       // קובץ דוח מכירות יומי
       const planRows = readSheet(wb, 'שורות הזמנה')

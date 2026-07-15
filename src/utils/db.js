@@ -304,3 +304,15 @@ export async function unmarkUrgentOrder(salesOrder) {
   const { error } = await supabase.from('sales_urgent').delete().eq('sales_order', String(salesOrder))
   if (error) throw new Error('sales_urgent: ' + error.message)
 }
+
+
+// ─── מלאי שוק מקומי ───────────────────────────────────────────────
+export async function uploadLocalMarket({ items, plan, stock }) {
+  await clearAndInsert('local_items', items)
+  await clearAndInsert('local_plan', plan)
+  await clearAndInsert('local_stock', stock)
+}
+
+export async function fetchLocalItems() { return fetchAll('local_items') }
+export async function fetchLocalPlan()  { return fetchAll('local_plan') }
+export async function fetchLocalStock() { return fetchAll('local_stock') }

@@ -10,6 +10,7 @@ import ShipmentPlanView from './components/ShipmentPlanView'
 import MonthlyStatusView from './components/MonthlyStatusView'
 import FileUpload from './components/FileUpload'
 import DeliveryNotesView from './components/DeliveryNotesView'
+import LocalMarketView from './components/LocalMarketView'
 import {
   fetchCustomers, fetchSalesOrders, fetchProduction,
   fetchAllocation, fetchPurchaseOrders, fetchDR4, fetchDR5,
@@ -18,7 +19,7 @@ import {
 import './App.css'
 
 export default function App() {
-  const VALID_PAGES = ['sales', 'monthly', 'bo', 'urgent', 'invoices', 'delivery', 'customer', 'custinfo', 'shipplan', 'upload']
+  const VALID_PAGES = ['sales', 'monthly', 'bo', 'urgent', 'invoices', 'delivery', 'customer', 'custinfo', 'shipplan', 'localmarket', 'upload']
   const [page, setPage] = useState(() => {
     const saved = localStorage.getItem('sales_active_page')
     return VALID_PAGES.includes(saved) ? saved : 'sales'
@@ -80,6 +81,7 @@ export default function App() {
         {page === 'customer'   && loaded && <CustomerCard customers={data.customers} salesOrders={data.salesOrders} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} urgent={data.urgent} onUrgentChange={reloadUrgent} />}
         {page === 'custinfo'   && loaded && <CustomerInfoView customers={data.customers} />}
         {page === 'shipplan'   && loaded && <ShipmentPlanView salesOrders={data.salesOrders} customers={data.customers} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} procurementNotes={data.procurementNotes} />}
+        {page === 'localmarket' && <LocalMarketView />}
         {page === 'upload'     && <FileUpload onUploaded={reload} />}
       </main>
     </div>
