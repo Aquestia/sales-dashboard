@@ -307,12 +307,28 @@ export async function unmarkUrgentOrder(salesOrder) {
 
 
 // ─── מלאי שוק מקומי ───────────────────────────────────────────────
-export async function uploadLocalMarket({ items, plan, stock }) {
-  await clearAndInsert('local_items', items)
-  await clearAndInsert('local_plan', plan)
-  await clearAndInsert('local_stock', stock)
+export async function uploadLocalMarket({ filename, items, plan, stock }) {
+  const src = filename || 'local_market.xlsx'
+  const stamp = new Date().toISOString()
+  const withMeta = rows => rows.map(r => ({ ...r, source_file: src, uploaded_at: stamp }))
+  await clearAndInsert('local_items', withMeta(items))
+  await clearAndInsert('local_plan',  withMeta(plan))
+  await clearAndInsert('local_stock', withMeta(stock))
 }
 
 export async function fetchLocalItems() { return fetchAll('local_items') }
 export async function fetchLocalPlan()  { return fetchAll('local_plan') }
 export async function fetchLocalStock() { return fetchAll('local_stock') }
+
+// סטטוס העלאה אחרונה: שם קובץ, תאריך/שעה, וספירות
+export async function fetchLocalMarketStatus() {
+  const { data } = await supabase.from('local_items')
+    .select('source_file, uploaded_at').order('uploaded_at', { ascending: false }).limit(1)
+  if (!data || !data.length) return null
+  const [{ count: itemsCount }, { count: planCount }, { count: stockCount }] = await Promise.all([
+    supabase.from('local_items').select('*', { count: 'exact', head: true }),
+    supabase.from('local_plan').select('*', { count: 'exact', head: true }),
+    supabase.from('local_stock').select('*', { count: 'exact', head: true }),
+  ])
+  return { filename: data[0].source_file, uploaded_at: data[0].uploaded_at, itemsCount, planCount, stockCount }
+}

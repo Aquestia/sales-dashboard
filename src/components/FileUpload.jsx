@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { uploadSnapshot, uploadMain, uploadLocalMarket, fetchSalesFiles, deleteSalesFile, updateSalesFileLabel } from '../utils/db'
+import { uploadSnapshot, uploadMain, uploadLocalMarket, fetchSalesFiles, deleteSalesFile, updateSalesFileLabel, fetchLocalMarketStatus } from '../utils/db'
 
 const FILE_TYPES = [
   { key: 'main',     label: 'קובץ ראשי (check_data)',  hint: 'לשוניות: Customers / Sales orders / Production / Calculated Allocation / Open Purchase Orders / DR4 / DR5 / Invoices / BO / תעודות משלוח' },
@@ -12,12 +12,14 @@ export default function FileUpload() {
   const [messages, setMessages] = useState([])
   const [uploading, setUploading] = useState(false)
   const [savedFiles, setSavedFiles] = useState([])
+  const [localStatus, setLocalStatus] = useState(null)
   const [editingFile, setEditingFile] = useState(null) // { id, filename, batch_date }
   const [deleting, setDeleting] = useState(null)
   const inputRef = useRef()
 
   useEffect(() => {
     fetchSalesFiles().then(setSavedFiles)
+    fetchLocalMarketStatus().then(setLocalStatus)
   }, [])
 
   async function handleDelete(f) {
@@ -66,7 +68,8 @@ export default function FileUpload() {
               await uploadSnapshot(me.data.plan, me.data.niso, me.data.invoices)
               addMsg('success', `✓ הועלו: ${me.data.plan.length} תוכנית · ${me.data.niso.length} NISO · ${me.data.invoices.length} חשבוניות`)
             } else if (me.data.fileType === 'localmarket') {
-              await uploadLocalMarket({ items: me.data.items, plan: me.data.plan, stock: me.data.stock })
+              await uploadLocalMarket({ filename: file.name, items: me.data.items, plan: me.data.plan, stock: me.data.stock })
+              fetchLocalMarketStatus().then(setLocalStatus)
               addMsg('success', `✓ הועלו: ${me.data.items.length} מק"טים · ${me.data.plan.length} פק"עות · ${me.data.stock.length} שורות מלאי`)
             } else if (me.data.fileType === 'main') {
               await uploadMain({ filename: file.name, ...me.data })
@@ -132,6 +135,28 @@ export default function FileUpload() {
           ))}
         </div>
       )}
+      {/* סטטוס מלאי שוק מקומי */}
+      {fileType === 'localmarket' && (
+        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-card)', borderRadius: 10, padding: '1rem 1.2rem', marginTop: '1rem' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 10 }}>קובץ מלאי שוק מקומי אחרון:</div>
+          {localStatus ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--blue-bg)', border: '0.5px solid var(--border-accent)', borderRadius: 8 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--blue-dark)' }}>📄 {localStatus.filename}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                  הועלה: {new Date(localStatus.uploaded_at).toLocaleDateString('he-IL')} · {new Date(localStatus.uploaded_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-sub)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                {localStatus.itemsCount} מק"טים · {localStatus.planCount} פק"עות · {localStatus.stockCount} שורות מלאי
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 0' }}>עדיין לא הועלה קובץ מלאי שוק מקומי.</div>
+          )}
+        </div>
+      )}
+
       {/* Saved files list */}
       {savedFiles.length > 0 && (
         <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border-card)', borderRadius: 10, padding: '1rem 1.2rem', marginTop: '1rem' }}>
