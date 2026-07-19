@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
 import { fetchSalesFiles, fetchSalesOrdersByFileId } from '../utils/db'
 import { classifyOrder, buildLookups } from '../utils/classify'
 import { fmt } from '../utils/helpers'
@@ -13,7 +13,19 @@ const STATUS_ORDER = [
   'בהרכבת הרכבת מתכת','בהרכבת הרכבת פלסטיק','בהרכבת הרכבת נווטים',
   'בהרכבת מפעלון','בהרכבת מדי מים','בהרכבה','עב"ש','צבע','בליקוט','מתוזמן'
 ]
-const shortStatus = s => s.replace('בהרכבת הרכבת ','הרכבת ').replace('בהרכבת ','הרכבת ')
+const shortStatus = s => (s||'').replace('בהרכבת הרכבת ','הרכבת ').replace('בהרכבת ','הרכבת ')
+
+// צבעי תגית סטטוס (pill) — לפי מיקום ב-STATUS_ORDER
+const PILL_PALETTE = [
+  ['#EAF3DE','#2F7D4F'], ['#E6F1FB','#185FA5'], ['#F2E9F6','#7D3C98'],
+  ['#FAEEDA','#9A6A12'], ['#FCEBEB','#A32D2D'], ['#E7F5F3','#0E7C86'],
+  ['#F0EEF9','#4B44A8'], ['#FBEFE4','#B4560F'], ['#EEF2F6','#3A4A5C'],
+]
+function statusPill(st) {
+  const idx = STATUS_ORDER.indexOf(st)
+  const [bg, c] = PILL_PALETTE[(idx < 0 ? 8 : idx) % PILL_PALETTE.length]
+  return { bg, c }
+}
 
 // statuses that have no production order
 const NO_PROD_STATUSES = ['מלאי תוצ"ג', 'חלקי חילוף']
@@ -34,6 +46,7 @@ function buildMonthData(orders, production, dr4, dr5) {
     if (!byMonth[mk][st]) byMonth[mk][st] = {
       I:{cnt:0,amt:0,rows:[]}, E:{cnt:0,amt:0,rows:[]}
     }
+    o._cls = st  // צירוף הסטטוס המסווג לשורה (לתצוגה בפאנל ובייצוא)
     byMonth[mk][st][ie].cnt += 1
     byMonth[mk][st][ie].amt += o.remaining_amount || 0
     byMonth[mk][st][ie].rows.push(o)
@@ -43,6 +56,7 @@ function buildMonthData(orders, production, dr4, dr5) {
 
 // ── Sales order columns (always shown)
 const SO_COLS = [
+  ['_cls','סטטוס'],
   ['sales_order','הזמנה'],['line_number','שורה'],['customer_account','לקוח'],
   ['customer_name','שם לקוח'],['item_number','מק"ט'],['item_group','קבוצה'],
   ['status','סטטוס הזמנה'],['mode_of_delivery','משלוח'],['confirmed_ship_date','ת. אספקה'],
@@ -50,23 +64,91 @@ const SO_COLS = [
   ['_prod_info','מידע פק"ע']
 ]
 
-function exportToExcel(rows, cols, filename, productionMap) {
-  const data = rows.map(r => {
-    const obj = {}
-    cols.filter(([k]) => k !== '_prod_info').forEach(([k,l]) => { obj[l] = r[k] ?? '' })
-    // Add prod info
+// ── עיצוב אקסל ──
+const XL_HEAD_FILL = 'FF2B6CA3'
+function xlThin() {
+  const s = { style: 'thin', color: { rgb: 'FFCDDAE6' } }
+  return { top: s, bottom: s, left: s, right: s }
+}
+function argb(hex) { return 'FF' + hex.replace('#', '').toUpperCase() }
+
+const EXPORT_COLS = [
+  { h: 'סטטוס',        w: 15, align: 'right'  },
+  { h: 'הזמנה',        w: 14, align: 'center' },
+  { h: 'שורה',         w: 7,  align: 'center' },
+  { h: 'לקוח',         w: 11, align: 'center' },
+  { h: 'שם לקוח',      w: 30, align: 'right'  },
+  { h: 'מק"ט',         w: 17, align: 'center' },
+  { h: 'קבוצה',        w: 9,  align: 'center' },
+  { h: 'סטטוס הזמנה',  w: 16, align: 'center' },
+  { h: 'משלוח',        w: 9,  align: 'center' },
+  { h: 'ת. אספקה',     w: 12, align: 'center' },
+  { h: 'כמות',         w: 9,  align: 'center' },
+  { h: 'יתרה',         w: 9,  align: 'center' },
+  { h: 'סכום $',       w: 13, align: 'center', money: true },
+  { h: 'סטטוס פק"ע',   w: 18, align: 'center' },
+  { h: 'שבוע',         w: 11, align: 'center' },
+  { h: 'מאגר',         w: 10, align: 'center' },
+]
+const MONEY_C = 12  // index of "סכום $"
+
+function exportToExcel(rows, filename, productionMap) {
+  const aoa = [EXPORT_COLS.map(c => c.h)]
+  let total = 0
+  rows.forEach(r => {
     const prod = productionMap?.[r.production_number]
-    if (prod) {
-      obj['סטטוס פק"ע'] = prod.status || ''
-      obj['שבוע'] = prod.planning_priority === 188 ? 'לא משובץ' : `שבוע ${prod.planning_priority}`
-      obj['מאגר'] = prod.pool || ''
-    }
-    return obj
+    const wk = prod ? (prod.planning_priority === 188 || !prod.planning_priority ? 'לא משובץ' : `שבוע ${prod.planning_priority}`) : ''
+    total += r.remaining_amount || 0
+    aoa.push([
+      shortStatus(r._cls || ''),
+      r.sales_order || '', r.line_number ?? '', r.customer_account || '',
+      r.customer_name || '', r.item_number || '', r.item_group || '',
+      r.status || '', r.mode_of_delivery || '', r.confirmed_ship_date || '',
+      r.ordered_quantity ?? '', r.deliver_remainder ?? '',
+      Math.round(r.remaining_amount || 0),
+      prod?.status || '', wk, prod?.pool || '',
+    ])
   })
-  const ws = XLSX.utils.json_to_sheet(data)
+  // שורת סה"כ
+  const totRow = EXPORT_COLS.map(() => '')
+  totRow[0] = 'סה"כ'
+  totRow[MONEY_C] = Math.round(total)
+  aoa.push(totRow)
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!cols'] = EXPORT_COLS.map(c => ({ wch: c.w }))
+  ws['!views'] = [{ rightToLeft: true }]
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: EXPORT_COLS.length - 1 } }) }
+
+  const lastR = aoa.length - 1
+  for (let r = 0; r < aoa.length; r++) {
+    const isHead = r === 0
+    const isTot = r === lastR
+    for (let c = 0; c < EXPORT_COLS.length; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c })
+      if (!ws[addr]) continue
+      if (isHead) {
+        ws[addr].s = {
+          fill: { patternType: 'solid', fgColor: { rgb: XL_HEAD_FILL } },
+          font: { bold: true, color: { rgb: 'FFFFFFFF' }, sz: 11 },
+          alignment: { horizontal: 'center', vertical: 'center', readingOrder: 2, wrapText: true },
+          border: xlThin(),
+        }
+      } else {
+        const bg = isTot ? 'FFE8EDF5' : (r % 2 === 0 ? 'FFF6F9FC' : 'FFFFFFFF')
+        ws[addr].s = {
+          fill: { patternType: 'solid', fgColor: { rgb: bg } },
+          font: { sz: 10.5, bold: isTot, color: { rgb: 'FF333333' } },
+          alignment: { horizontal: EXPORT_COLS[c].align, vertical: 'center', readingOrder: 2 },
+          border: xlThin(),
+        }
+        if (c === MONEY_C && typeof ws[addr].v === 'number') ws[addr].z = '"$"#,##0'
+      }
+    }
+  }
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'נתונים')
-  XLSX.writeFile(wb, filename + '.xlsx')
+  XLSX.utils.book_append_sheet(wb, ws, 'הזמנות')
+  XLSX.writeFile(wb, filename + '.xlsx', { bookType: 'xlsx' })
 }
 
 function DetailPanel({ status, monthKey: mk, rows, productionMap, fileLabel, onClose }) {
@@ -86,13 +168,15 @@ function DetailPanel({ status, monthKey: mk, rows, productionMap, fileLabel, onC
     <div style={{ border:'0.5px solid var(--border-card)', borderRadius:10, padding:'1rem 1.2rem', marginTop:16, background:'#fff' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
         <div>
-          <span style={{ fontWeight:600, fontSize:14 }}>{shortStatus(status)} · {monthLabel(mk)}</span>
+          <span style={{ fontWeight:600, fontSize:14 }}>
+            {status === '__ALL__' ? '📋 כל הסטטוסים' : shortStatus(status)} · {monthLabel(mk)}
+          </span>
           <span style={{ fontSize:12, color:'var(--text-muted)', marginRight:10 }}>
             {fileLabel} · {rows.length} שורות · ${fmt(totalAmt)}
           </span>
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <button onClick={() => exportToExcel(sorted, SO_COLS, `${shortStatus(status)}_${mk}`, productionMap)}
+          <button onClick={() => exportToExcel(sorted, status === '__ALL__' ? `כל_הסטטוסים_${mk}` : `${shortStatus(status)}_${mk}`, productionMap)}
             style={{ padding:'6px 14px', borderRadius:'var(--radius)', border:'0.5px solid var(--border-card)',
               background:'#f0f8ec', color:'#2a7a1a', fontWeight:600, fontSize:12, cursor:'pointer' }}>
             ⬇ ייצוא Excel
@@ -126,7 +210,12 @@ function DetailPanel({ status, monthKey: mk, rows, productionMap, fileLabel, onC
                 <tr key={i} style={{ background: isDone ? '#eaf3de' : i%2===0?'#fafaf8':'#fff' }}>
                   {SO_COLS.map(([k]) => (
                     <td key={k} style={CS}>
-                      {k === 'remaining_amount' ? `$${fmt(r[k]||0)}`
+                      {k === '_cls' ? (() => {
+                          const p = statusPill(r._cls)
+                          return <span style={{ background:p.bg, color:p.c, fontWeight:600, fontSize:10,
+                            padding:'2px 8px', borderRadius:100, whiteSpace:'nowrap' }}>{shortStatus(r._cls)}</span>
+                        })()
+                        : k === 'remaining_amount' ? `$${fmt(r[k]||0)}`
                         : k === '_prod_info' ? (
                           prod
                             ? <span style={{ fontSize:10 }}>
@@ -143,7 +232,7 @@ function DetailPanel({ status, monthKey: mk, rows, productionMap, fileLabel, onC
           </tbody>
           <tfoot>
             <tr style={{ fontWeight:700, background:'#e8edf5' }}>
-              <td colSpan={11} style={{ ...CS, textAlign:'left' }}>סה"כ</td>
+              <td colSpan={12} style={{ ...CS, textAlign:'left' }}>סה"כ</td>
               <td style={{ ...CS, fontWeight:700 }}>${fmt(totalAmt)}</td>
               <td style={CS}></td>
             </tr>
@@ -270,11 +359,17 @@ function StatusTable({ mk, aData, bData, aFile, bFile, color, productionMapA, pr
               <td style={{ ...CS, textAlign:'right', borderRight:'1px solid #ccc' }}>סה"כ</td>
               <td style={CS}>${fmt(tA.iA)}</td>
               <td style={CS}>${fmt(tA.eA)}</td>
-              <td style={{ ...CS, fontWeight:700, background:'#e8d9b0' }}>${fmt(tA.tot)}</td>
+              <td onClick={tA.tot ? () => onCellClick(`${mk}|__ALL__|all|A`) : undefined}
+                title="הצג את כל השורות מכל הסטטוסים"
+                style={{ ...CS, fontWeight:700, cursor: tA.tot ? 'pointer' : 'default',
+                  background: activeKey === `${mk}|__ALL__|all|A` ? '#d0e8f8' : '#e8d9b0' }}>${fmt(tA.tot)}</td>
               <td style={{ ...CS, borderLeft:'2px solid #b8860b' }}>{tA.cnt}</td>
               <td style={CS}>${fmt(tB.iA)}</td>
               <td style={CS}>${fmt(tB.eA)}</td>
-              <td style={{ ...CS, fontWeight:700, background:'#b8dcf5' }}>${fmt(tB.tot)}</td>
+              <td onClick={tB.tot ? () => onCellClick(`${mk}|__ALL__|all|B`) : undefined}
+                title="הצג את כל השורות מכל הסטטוסים"
+                style={{ ...CS, fontWeight:700, cursor: tB.tot ? 'pointer' : 'default',
+                  background: activeKey === `${mk}|__ALL__|all|B` ? '#a8d4f0' : '#b8dcf5' }}>${fmt(tB.tot)}</td>
               <td style={{ ...CS, borderLeft:'2px solid #1565a0' }}>{tB.cnt}</td>
               <ChangeCell aAmt={tA.tot} bAmt={tB.tot} style={{ ...CS, background:'#dff0d8', fontSize:14 }} />
             </tr>
@@ -351,11 +446,20 @@ export default function MonthlyStatusView({ production, dr4, dr5 }) {
     const parts = activeKey.split('|')
     const [mk, st, ie, file] = parts
     const build = file === 'A' ? buildA : buildB
-    const stData = build.byMonth[mk]?.[st]
-    if (!stData) return null
+    const monthData = build.byMonth[mk]
+    if (!monthData) return null
     let rows = []
-    if (ie === 'all') rows = [...(stData.I?.rows||[]), ...(stData.E?.rows||[])]
-    else rows = stData[ie]?.rows || []
+    if (st === '__ALL__') {
+      // כל השורות מכל הסטטוסים בחודש/קובץ הזה
+      Object.values(monthData).forEach(stData => {
+        rows.push(...(stData.I?.rows || []), ...(stData.E?.rows || []))
+      })
+    } else {
+      const stData = monthData[st]
+      if (!stData) return null
+      if (ie === 'all') rows = [...(stData.I?.rows || []), ...(stData.E?.rows || [])]
+      else rows = stData[ie]?.rows || []
+    }
     const fileLabel = file === 'A' ? activeFiles[0]?.batch_date : activeFiles[1]?.batch_date
     const productionMap = build.productionMap
     return { status: st, monthKey: mk, rows, productionMap, fileLabel }
