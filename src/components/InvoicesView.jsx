@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fmt } from '../utils/helpers'
+import { fmt, marketSegment, MARKET_LABELS, MARKET_COLORS, MARKET_KEYS } from '../utils/helpers'
 import { fetchSalesFiles, fetchInvoicesDetail } from '../utils/db'
 
 export default function InvoicesView() {
@@ -9,6 +9,7 @@ export default function InvoicesView() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('all')
+  const [marketFilter, setMarketFilter] = useState('all')
   const [selDay, setSelDay] = useState(null)
 
   useEffect(() => {
@@ -32,6 +33,12 @@ export default function InvoicesView() {
   const intAmt      = invoices.filter(r=>r.cat==='Internal').reduce((s,r)=>s+(r.invoice_amount||0),0)
   const extAmt      = invoices.filter(r=>r.cat==='External').reduce((s,r)=>s+(r.invoice_amount||0),0)
 
+  // פילוח שוק
+  const segOf = r => marketSegment(r.sale_type_code, r.name)
+  const mkt = { local: [], netafim: [], export: [] }
+  invoices.forEach(r => { mkt[segOf(r)].push(r) })
+  const mktAmt = k => mkt[k].reduce((s,r)=>s+(r.invoice_amount||0),0)
+
   // Daily grouping for chart
   const byDate = {}
   invoices.forEach(r => {
@@ -45,6 +52,7 @@ export default function InvoicesView() {
 
   // Filtered rows for table
   let rows = catFilter === 'all' ? invoices : invoices.filter(r => r.cat === catFilter)
+  if (marketFilter !== 'all') rows = rows.filter(r => segOf(r) === marketFilter)
   if (search) {
     const q = search.toLowerCase()
     rows = rows.filter(r =>
@@ -96,6 +104,17 @@ export default function InvoicesView() {
         ))}
       </div>
 
+      {/* פילוח שוק */}
+      <div className="kpi-row" style={{ marginBottom:'1.25rem' }}>
+        {MARKET_KEYS.map(k => (
+          <div key={k} className="kpi-card" style={{ cursor:'default', borderTop:`3px solid ${MARKET_COLORS[k]}` }}>
+            <div className="kpi-label">{MARKET_LABELS[k]}</div>
+            <div className="kpi-value" style={{ color:MARKET_COLORS[k] }}>${fmt(mktAmt(k))}</div>
+            <div className="kpi-sub">{mkt[k].length} חשבוניות</div>
+          </div>
+        ))}
+      </div>
+
       {/* Daily bar chart */}
       {days.length > 0 && (
         <div className="section-box" style={{ marginBottom:'1rem' }}>
@@ -141,7 +160,7 @@ export default function InvoicesView() {
               <div style={{ overflowX:'auto' }}>
                 <table style={{ fontSize:12, width:'100%', borderCollapse:'collapse' }}>
                   <thead>
-                    <tr>{['חשבונית','לקוח','שם לקוח','הזמנה','מטבע','סכום $','סוג'].map(h=>(
+                    <tr>{['חשבונית','לקוח','שם לקוח','הזמנה','מטבע','סכום $','סוג','שוק'].map(h=>(
                       <th key={h} style={{ textAlign:'right', padding:'6px 8px', color:'var(--text-muted)', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap', fontWeight:600 }}>{h}</th>
                     ))}</tr>
                   </thead>
@@ -155,6 +174,7 @@ export default function InvoicesView() {
                         <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap' }}>{r.currency}</td>
                         <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap', fontWeight:600 }}>${fmt(r.invoice_amount||0)}</td>
                         <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap' }}>{r.cat==='Internal'?'פנימי':'חיצוני'}</td>
+                        <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border-tbl)', whiteSpace:'nowrap' }}><span style={{ fontSize:11, padding:'2px 8px', borderRadius:10, background:MARKET_COLORS[segOf(r)]+'22', color:MARKET_COLORS[segOf(r)] }}>{MARKET_LABELS[segOf(r)]}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -179,13 +199,24 @@ export default function InvoicesView() {
             {v==='all'?'הכל':v==='Internal'?'פנימיים':'חיצוניים'}
           </button>
         ))}
+        <span style={{ width:1, background:'var(--border)', margin:'0 4px' }} />
+        {['all', ...MARKET_KEYS].map(v=>(
+          <button key={v} onClick={()=>setMarketFilter(v)}
+            style={{ padding:'7px 14px', borderRadius:'var(--radius)',
+              border:'0.5px solid '+(marketFilter===v?'var(--border-accent)':'var(--border)'),
+              background:marketFilter===v?'var(--bg-accent)':'var(--surface-1)',
+              cursor:'pointer', fontSize:13,
+              color: v!=='all' ? MARKET_COLORS[v] : 'inherit' }}>
+            {v==='all'?'כל השווקים':MARKET_LABELS[v]}
+          </button>
+        ))}
       </div>
 
       {/* Table */}
       <div style={{ overflowX:'auto', background:'var(--surface-2)', border:'0.5px solid var(--border)', borderRadius:12, padding:'1rem 1.1rem' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
           <thead>
-            <tr>{['חשבונית','לקוח','שם לקוח','הזמנה','תאריך','מטבע','סכום חשבוניות','סוג'].map(h=>(
+            <tr>{['חשבונית','לקוח','שם לקוח','הזמנה','תאריך','מטבע','סכום חשבוניות','סוג','שוק'].map(h=>(
               <th key={h} style={{ textAlign:'right', padding:'6px 8px', color:'var(--text-secondary)', borderBottom:'0.5px solid var(--border)', whiteSpace:'nowrap' }}>{h}</th>
             ))}</tr>
           </thead>
@@ -200,6 +231,7 @@ export default function InvoicesView() {
                 <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border)', whiteSpace:'nowrap' }}>{r.currency}</td>
                 <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border)', whiteSpace:'nowrap', fontWeight:600 }}>${fmt(r.invoice_amount||0)}</td>
                 <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border)', whiteSpace:'nowrap' }}>{r.cat==='Internal'?'פנימי':'חיצוני'}</td>
+                <td style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border)', whiteSpace:'nowrap' }}><span style={{ fontSize:11, padding:'2px 8px', borderRadius:10, background:MARKET_COLORS[segOf(r)]+'22', color:MARKET_COLORS[segOf(r)] }}>{MARKET_LABELS[segOf(r)]}</span></td>
               </tr>
             ))}
           </tbody>

@@ -21,3 +21,26 @@ export function groupBy(arr, fn) {
     return m
   }, {})
 }
+
+// ─── פילוח שוק: שוק מקומי / נטפים / ייצוא ───
+export function isNetafim(name) {
+  return String(name || '').toUpperCase().includes('NETAFIM')
+}
+
+// הזמנות + חשבוניות (יש Sale type code): code 10 → מקומי · אחרת שם NETAFIM → נטפים · אחרת → ייצוא
+export function marketSegment(saleTypeCode, customerName) {
+  if (String(saleTypeCode || '').trim() === '10') return 'local'
+  if (isNetafim(customerName)) return 'netafim'
+  return 'export'
+}
+
+// תעודות משלוח (אין Sale type code): Currency ILS → מקומי · אחרת שם NETAFIM → נטפים · אחרת → ייצוא
+export function marketSegmentByCurrency(currency, customerName) {
+  if (String(currency || '').trim().toUpperCase() === 'ILS') return 'local'
+  if (isNetafim(customerName)) return 'netafim'
+  return 'export'
+}
+
+export const MARKET_LABELS = { local: 'שוק מקומי', netafim: 'נטפים', export: 'ייצוא' }
+export const MARKET_COLORS = { local: '#059669', netafim: '#7C3AED', export: '#185FA5' }
+export const MARKET_KEYS = ['local', 'netafim', 'export']

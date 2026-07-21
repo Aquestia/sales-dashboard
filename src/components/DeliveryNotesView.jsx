@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fmt } from '../utils/helpers'
+import { fmt, marketSegmentByCurrency, MARKET_LABELS, MARKET_COLORS, MARKET_KEYS } from '../utils/helpers'
 import { fetchSalesFiles, fetchDeliveryNotes } from '../utils/db'
 
 // שערי ברירת מחדל (משמשים רק אם משיכת השער החי נכשלת)
@@ -18,6 +18,7 @@ export default function DeliveryNotesView() {
 
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('all')
+  const [marketFilter, setMarketFilter] = useState('all')
   const [expanded, setExpanded] = useState({})   // { [customer]: true }
 
   // ─── טעינת קבצים ───
@@ -84,7 +85,7 @@ export default function DeliveryNotesView() {
     return base * ilsRate / usdIls
   }
 
-  const enriched = rows.map(r => ({ ...r, usd: toUSD(r) }))
+  const enriched = rows.map(r => ({ ...r, usd: toUSD(r), seg: marketSegmentByCurrency(r.currency, r.customer) }))
 
   // ─── מלבנים ───
   const totalUsd = enriched.reduce((s, r) => s + r.usd, 0)
@@ -93,8 +94,14 @@ export default function DeliveryNotesView() {
   const intUsd   = intRows.reduce((s, r) => s + r.usd, 0)
   const extUsd   = extRows.reduce((s, r) => s + r.usd, 0)
 
+  // פילוח שוק (לפי מטבע: ILS → מקומי)
+  const mkt = { local: [], netafim: [], export: [] }
+  enriched.forEach(r => { mkt[r.seg].push(r) })
+  const mktUsd = k => mkt[k].reduce((s, r) => s + r.usd, 0)
+
   // ─── סינון ───
   let filtered = catFilter === 'all' ? enriched : enriched.filter(r => r.cat === catFilter)
+  if (marketFilter !== 'all') filtered = filtered.filter(r => r.seg === marketFilter)
   if (search) {
     const q = search.toLowerCase()
     filtered = filtered.filter(r =>
@@ -113,6 +120,7 @@ export default function DeliveryNotesView() {
     byCust[r.customer].lines.push(r)
   })
   const custGroups = Object.values(byCust).sort((a, b) => b.usd - a.usd)
+  custGroups.forEach(g => { const set = new Set(g.lines.map(l => l.seg)); g.seg = set.size === 1 ? [...set][0] : 'mixed' })
 
   const th = { textAlign: 'right', padding: '7px 8px', color: 'var(--text-muted)', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap', fontWeight: 600, fontSize: 12 }
   const td = { padding: '6px 8px', borderBottom: '0.5px solid var(--border-tbl)', whiteSpace: 'nowrap', fontSize: 12 }
@@ -190,6 +198,17 @@ export default function DeliveryNotesView() {
         ))}
       </div>
 
+      {/* פילוח שוק */}
+      <div className="kpi-row" style={{ marginBottom: '1.25rem' }}>
+        {MARKET_KEYS.map(k => (
+          <div key={k} className="kpi-card" style={{ cursor: 'default', borderTop: `3px solid ${MARKET_COLORS[k]}` }}>
+            <div className="kpi-label">{MARKET_LABELS[k]}</div>
+            <div className="kpi-value" style={{ color: MARKET_COLORS[k] }}>${fmt(mktUsd(k))}</div>
+            <div className="kpi-sub">{mkt[k].length} תעודות</div>
+          </div>
+        ))}
+      </div>
+
       {/* חיפוש + סינון */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <input value={search} onChange={e => setSearch(e.target.value)}
@@ -203,6 +222,17 @@ export default function DeliveryNotesView() {
             {v === 'all' ? 'הכל' : v === 'Internal' ? 'פנימיים' : 'חיצוניים'}
           </button>
         ))}
+        <span style={{ width:1, background:'var(--border)', margin:'0 4px' }} />
+        {['all', ...MARKET_KEYS].map(v => (
+          <button key={v} onClick={() => setMarketFilter(v)}
+            style={{ padding: '7px 14px', borderRadius: 'var(--radius)',
+              border: '0.5px solid ' + (marketFilter === v ? 'var(--border-accent)' : 'var(--border)'),
+              background: marketFilter === v ? 'var(--bg-accent)' : 'var(--bg-card)',
+              cursor: 'pointer', fontSize: 13,
+              color: v !== 'all' ? MARKET_COLORS[v] : 'inherit' }}>
+            {v === 'all' ? 'כל השווקים' : MARKET_LABELS[v]}
+          </button>
+        ))}
       </div>
 
       {/* טבלה מחולקת לפי לקוחות */}
@@ -213,6 +243,7 @@ export default function DeliveryNotesView() {
               <th style={{ ...th, width: 28 }}></th>
               <th style={th}>לקוח</th>
               <th style={th}>סוג</th>
+              <th style={th}>שוק</th>
               <th style={th}>כמות תעודות</th>
               <th style={{ ...th, textAlign: 'left' }}>סכום ($)</th>
             </tr>
@@ -232,6 +263,7 @@ export default function DeliveryNotesView() {
               <tr style={{ background: 'var(--blue-bg)', fontWeight: 700 }}>
                 <td style={{ ...td, borderTop: '1px solid var(--blue-dark)' }}></td>
                 <td style={{ ...td, borderTop: '1px solid var(--blue-dark)', color: 'var(--blue-dark)' }}>סה"כ</td>
+                <td style={{ ...td, borderTop: '1px solid var(--blue-dark)' }}></td>
                 <td style={{ ...td, borderTop: '1px solid var(--blue-dark)' }}></td>
                 <td style={{ ...td, borderTop: '1px solid var(--blue-dark)', color: 'var(--blue-dark)' }}>{filtered.length}</td>
                 <td style={{ ...td, borderTop: '1px solid var(--blue-dark)', textAlign: 'left', color: 'var(--blue-dark)' }}>${fmt(filtered.reduce((s, r) => s + r.usd, 0))}</td>
@@ -262,13 +294,20 @@ function FragmentRows({ g, gi, open, onToggle, th, td }) {
             {g.cat === 'Internal' ? 'פנימי' : 'חיצוני'}
           </span>
         </td>
+        <td style={td}>
+          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10,
+            background: (g.seg === 'mixed' ? '#6B7280' : MARKET_COLORS[g.seg]) + '22',
+            color: g.seg === 'mixed' ? '#6B7280' : MARKET_COLORS[g.seg] }}>
+            {g.seg === 'mixed' ? 'מעורב' : MARKET_LABELS[g.seg]}
+          </span>
+        </td>
         <td style={td}>{g.cnt}</td>
         <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>${fmt(g.usd)}</td>
       </tr>
       {open && (
         <tr>
           <td></td>
-          <td colSpan={4} style={{ padding: '0 8px 10px' }}>
+          <td colSpan={5} style={{ padding: '0 8px 10px' }}>
             <div style={{ overflowX: 'auto', border: '0.5px solid var(--border-tbl)', borderRadius: 8 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { fmt } from '../utils/helpers'
+import { fmt, marketSegment, MARKET_LABELS, MARKET_COLORS, MARKET_KEYS } from '../utils/helpers'
 import { fetchSalesFiles, fetchSalesOrdersByFileId, fetchInvoicesDetail } from '../utils/db'
 
 const ORDER_COLS = [
@@ -80,6 +80,11 @@ export default function SalesDashboard() {
   const totalInternal = orders.filter(r => r.cat === 'Internal').reduce((s, r) => s + (r.remaining_amount || 0), 0)
   const totalExternal = orders.filter(r => r.cat === 'External').reduce((s, r) => s + (r.remaining_amount || 0), 0)
 
+  // פילוח שוק — שוק מקומי / נטפים / ייצוא (על כלל ההזמנות הפתוחות)
+  const marketOrders = { local: [], netafim: [], export: [] }
+  orders.forEach(r => { marketOrders[marketSegment(r.sale_type_code, r.customer_name)].push(r) })
+  const marketAmt = k => marketOrders[k].reduce((s, r) => s + (r.remaining_amount || 0), 0)
+
   // Monthly breakdown — רק הזמנות נטו (ללא Drop/Consignment/India)
   const months = useMemo(() => {
     const m = {}
@@ -104,6 +109,7 @@ export default function SalesDashboard() {
     if (selected.type === 'drop')         return dropOrders
     if (selected.type === 'consignment')  return consignment
     if (selected.type === 'india')        return india
+    if (selected.type === 'market')       return orders.filter(r => marketSegment(r.sale_type_code, r.customer_name) === selected.key)
     if (selected.type === 'net')          return netOrders
     if (selected.type === 'net-internal') return netOrders.filter(r => r.cat === 'Internal')
     if (selected.type === 'net-external') return netOrders.filter(r => r.cat === 'External')
@@ -207,11 +213,31 @@ export default function SalesDashboard() {
         </div>
       </div>
 
+      {/* Row 2b: פילוח שוק */}
+      <div style={{ marginBottom: '1rem' }}>
+        <div style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
+          🌍 פילוח לפי שוק (מכל ההזמנות הפתוחות)
+        </div>
+        <div className="kpi-row" style={{ marginBottom: 0 }}>
+          {MARKET_KEYS.map(k => (
+            <button key={k} onClick={() => toggle('market', k)} className={'kpi-card' + (isActive('market', k) ? ' active' : '')}
+              style={{ borderTop: '3px solid ' + MARKET_COLORS[k] }}>
+              <div className="kpi-label">{MARKET_LABELS[k]}</div>
+              <div className="kpi-value" style={{ color: MARKET_COLORS[k] }}>${fmt(marketAmt(k))}</div>
+              <div className="kpi-sub">{marketOrders[k].length} שורות</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Row 3: Invoices */}
       {fileInvoices.length > 0 && (() => {
         const invTotal    = fileInvoices.reduce((s, r) => s + (r.invoice_amount || 0), 0)
         const invInternal = fileInvoices.filter(r => r.cat === 'Internal').reduce((s, r) => s + (r.invoice_amount || 0), 0)
         const invExternal = fileInvoices.filter(r => r.cat === 'External').reduce((s, r) => s + (r.invoice_amount || 0), 0)
+        const invMarket = { local: [], netafim: [], export: [] }
+        fileInvoices.forEach(r => { invMarket[marketSegment(r.sale_type_code, r.name)].push(r) })
+        const invMarketAmt = k => invMarket[k].reduce((s, r) => s + (r.invoice_amount || 0), 0)
         return (
           <div style={{ marginBottom: '1.5rem' }}>
             <div style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
@@ -233,6 +259,15 @@ export default function SalesDashboard() {
                 <div className="kpi-value">${fmt(invExternal)}</div>
                 <div className="kpi-sub">{fileInvoices.filter(r=>r.cat==='External').length} חשבוניות</div>
               </div>
+            </div>
+            <div className="kpi-row" style={{ marginTop: 8, marginBottom: 0 }}>
+              {MARKET_KEYS.map(k => (
+                <div key={k} className="kpi-card" style={{ cursor:'default', borderTop:'3px solid '+MARKET_COLORS[k] }}>
+                  <div className="kpi-label">{MARKET_LABELS[k]}</div>
+                  <div className="kpi-value" style={{ color: MARKET_COLORS[k] }}>${fmt(invMarketAmt(k))}</div>
+                  <div className="kpi-sub">{invMarket[k].length} חשבוניות</div>
+                </div>
+              ))}
             </div>
           </div>
         )
@@ -326,6 +361,7 @@ export default function SalesDashboard() {
             <div className="section-title" style={{ margin: 0 }}>
               {selected.type === 'month'
                 ? `${monthLabel(selected.key)}${selected.cat === 'internal' ? ' — פנימיים' : selected.cat === 'external' ? ' — חיצוניים' : ''}`
+                : selected.type === 'market' ? MARKET_LABELS[selected.key]
                 : selected.type === 'internal' ? 'לקוחות פנימיים'
                 : selected.type === 'external' ? 'לקוחות חיצוניים'
                 : 'כל ההזמנות'}
