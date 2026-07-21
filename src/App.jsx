@@ -8,7 +8,7 @@ import BOView from './components/BOView'
 import UrgentView from './components/UrgentView'
 import ShipmentPlanView from './components/ShipmentPlanView'
 import MonthlyStatusView from './components/MonthlyStatusView'
-import FileUpload from './components/FileUpload'
+import UploadGate from './components/UploadGate'
 import DeliveryNotesView from './components/DeliveryNotesView'
 import LocalMarketView from './components/LocalMarketView'
 import {
@@ -82,7 +82,7 @@ export default function App() {
         {page === 'custinfo'   && loaded && <CustomerInfoView customers={data.customers} />}
         {page === 'shipplan'   && loaded && <ShipmentPlanView salesOrders={data.salesOrders} customers={data.customers} production={data.production} allocation={data.allocation} purchaseOrders={data.purchaseOrders} dr4={data.dr4} dr5={data.dr5} procurementNotes={data.procurementNotes} />}
         {page === 'localmarket' && <LocalMarketView />}
-        {page === 'upload'     && <FileUpload onUploaded={reload} />}
+        {page === 'upload'     && <UploadGate onUploaded={reload} />}
       </main>
     </div>
   )

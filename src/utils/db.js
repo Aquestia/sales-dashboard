@@ -332,3 +332,55 @@ export async function fetchLocalMarketStatus() {
   ])
   return { filename: data[0].source_file, uploaded_at: data[0].uploaded_at, itemsCount, planCount, stockCount }
 }
+
+// ─── הרשאות אזור העלאת קובץ (sales_authorized_users) ───
+export async function fetchAuthorizedUsers() {
+  const { data, error } = await supabase
+    .from('sales_authorized_users')
+    .select('*')
+    .order('employee_number', { ascending: true })
+  if (error) throw new Error(error.message)
+  return data || []
+}
+
+// אימות לפי קוד כניסה (מספר עובד). מחזיר את השורה או null אם לא קיים.
+export async function authByEmployeeNumber(code) {
+  const { data, error } = await supabase
+    .from('sales_authorized_users')
+    .select('*')
+    .eq('employee_number', String(code).trim())
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data || null
+}
+
+export async function addAuthorizedUser(u) {
+  const { data, error } = await supabase
+    .from('sales_authorized_users')
+    .insert({
+      employee_number: String(u.employee_number).trim(),
+      first_name: u.first_name || '',
+      last_name: u.last_name || '',
+      role: u.role || '',
+      authorized: u.authorized !== false,
+      is_admin: !!u.is_admin,
+      updated_at: new Date().toISOString()
+    })
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function updateAuthorizedUser(id, fields) {
+  const { error } = await supabase
+    .from('sales_authorized_users')
+    .update({ ...fields, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteAuthorizedUser(id) {
+  const { error } = await supabase.from('sales_authorized_users').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
