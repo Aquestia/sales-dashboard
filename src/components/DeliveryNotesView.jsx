@@ -1,9 +1,128 @@
 import { useState, useEffect } from 'react'
 import { fmt, marketSegmentByCurrency, MARKET_LABELS, MARKET_COLORS, MARKET_KEYS } from '../utils/helpers'
+import * as XLSX from 'xlsx-js-style'
 import { fetchSalesFiles, fetchDeliveryNotes } from '../utils/db'
 
 // שערי ברירת מחדל (משמשים רק אם משיכת השער החי נכשלת)
 const FALLBACK = { usdIls: 3.70, eurIls: 4.00 }
+
+
+// ── ייצוא אקסל מעוצב: כל שורות תעודות המשלוח לפי סטטוס (שוק + פנימי/חיצוני) ──
+const XL_HEAD_FILL = 'FF2B6CA3'
+const _argb = hex => 'FF' + String(hex).replace('#', '').toUpperCase()
+function _xlThin() {
+  const s = { style: 'thin', color: { rgb: 'FFCDDAE6' } }
+  return { top: s, bottom: s, left: s, right: s }
+}
+const DN_COLS = [
+  { h: 'לקוח', w: 32, align: 'right' },
+  { h: 'סוג', w: 10, align: 'center' },
+  { h: 'שוק', w: 12, align: 'center' },
+  { h: 'הזמנה', w: 14, align: 'center' },
+  { h: 'שורה', w: 7, align: 'center' },
+  { h: 'מק"ט', w: 16, align: 'center' },
+  { h: 'תאריך משלוח', w: 13, align: 'center' },
+  { h: 'כמות', w: 9, align: 'center' },
+  { h: 'מטבע', w: 8, align: 'center' },
+  { h: "מחיר יח'", w: 11, align: 'center' },
+  { h: 'סכום $', w: 13, align: 'center' },
+]
+const DN_MONEY_C = 10
+const DN_COUNT_C = 7
+
+function exportDeliveryNotesExcel(enriched) {
+  if (!enriched || enriched.length === 0) return
+  const catLabel = c => c === 'Internal' ? 'פנימי' : 'חיצוני'
+  const blank = () => DN_COLS.map(() => '')
+  const aoa = []
+  const meta = []
+  const push = (arr, kind, seg) => { aoa.push(arr); meta.push({ kind, seg }) }
+  const sumUsd = arr => Math.round(arr.reduce((s, r) => s + (r.usd || 0), 0))
+
+  // כותרת
+  const title = blank(); title[0] = 'תעודות משלוח ללא חשבוניות — ייצוא לפי סטטוס'
+  push(title, 'title')
+  push(blank(), 'blank')
+
+  // סיכום לפי שוק
+  const sh1 = blank(); sh1[0] = 'סיכום לפי שוק'; push(sh1, 'sumhead')
+  MARKET_KEYS.forEach(k => {
+    const g = enriched.filter(r => r.seg === k)
+    const row = blank(); row[0] = MARKET_LABELS[k]; row[DN_COUNT_C] = g.length; row[DN_MONEY_C] = sumUsd(g)
+    push(row, 'sumrow')
+  })
+  // סיכום לפי סוג
+  const sh2 = blank(); sh2[0] = 'סיכום לפי סוג'; push(sh2, 'sumhead')
+  ;['Internal', 'External'].forEach(c => {
+    const g = enriched.filter(r => r.cat === c)
+    const row = blank(); row[0] = catLabel(c); row[DN_COUNT_C] = g.length; row[DN_MONEY_C] = sumUsd(g)
+    push(row, 'sumrow')
+  })
+  const gs = blank(); gs[0] = 'סה"כ כללי'; gs[DN_COUNT_C] = enriched.length; gs[DN_MONEY_C] = sumUsd(enriched)
+  push(gs, 'grand')
+  push(blank(), 'blank')
+
+  // כותרת טבלת פירוט
+  push(DN_COLS.map(c => c.h), 'header')
+
+  // קבוצות לפי שוק, מיון פנימי→חיצוני ואז לקוח
+  MARKET_KEYS.forEach(k => {
+    const g = enriched.filter(r => r.seg === k).sort((a, b) =>
+      a.cat === b.cat ? String(a.customer || '').localeCompare(String(b.customer || ''), 'he') : (a.cat === 'Internal' ? -1 : 1))
+    if (g.length === 0) return
+    const gh = blank(); gh[0] = MARKET_LABELS[k] + ' — ' + g.length + ' תעודות'
+    push(gh, 'group', k)
+    g.forEach(r => {
+      push([
+        r.customer || '', catLabel(r.cat), MARKET_LABELS[r.seg] || '',
+        r.sales_order || '', r.line_number ?? '', r.item_number || '',
+        r.ship_date || '', r.quantity ?? '', r.currency || '',
+        (r.unit_price ?? '') === '' ? '' : Number(r.unit_price),
+        Math.round(r.usd || 0),
+      ], 'row', k)
+    })
+    const sub = blank(); sub[0] = 'סה"כ ' + MARKET_LABELS[k]; sub[DN_COUNT_C] = g.length; sub[DN_MONEY_C] = sumUsd(g)
+    push(sub, 'subtotal', k)
+  })
+  const grand = blank(); grand[0] = 'סה"כ כללי'; grand[DN_COUNT_C] = enriched.length; grand[DN_MONEY_C] = sumUsd(enriched)
+  push(grand, 'grand')
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!cols'] = DN_COLS.map(c => ({ wch: c.w }))
+  ws['!views'] = [{ rightToLeft: true }]
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: DN_COLS.length - 1 } }]
+  const headerRowIdx = meta.findIndex(m => m.kind === 'header')
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: headerRowIdx, c: 0 }, e: { r: headerRowIdx, c: DN_COLS.length - 1 } }) }
+
+  for (let r = 0; r < aoa.length; r++) {
+    const { kind, seg } = meta[r]
+    for (let c = 0; c < DN_COLS.length; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c })
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' }
+      if (kind === 'blank') { ws[addr].s = { fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } } }; continue }
+      let fill, font, align = DN_COLS[c].align
+      if (kind === 'title')        { fill = 'FF1F4E78'; font = { bold: true, sz: 14, color: { rgb: 'FFFFFFFF' } }; align = 'center' }
+      else if (kind === 'sumhead') { fill = 'FFDDE7F0'; font = { bold: true, sz: 11, color: { rgb: 'FF1F4E78' } }; align = c === 0 ? 'right' : 'center' }
+      else if (kind === 'header')  { fill = XL_HEAD_FILL; font = { bold: true, sz: 11, color: { rgb: 'FFFFFFFF' } }; align = 'center' }
+      else if (kind === 'group')   { fill = _argb(MARKET_COLORS[seg]); font = { bold: true, sz: 11, color: { rgb: 'FFFFFFFF' } }; align = c === 0 ? 'right' : 'center' }
+      else if (kind === 'subtotal'){ fill = 'FFEFF3F8'; font = { bold: true, sz: 10.5, color: { rgb: 'FF333333' } } }
+      else if (kind === 'grand')   { fill = 'FFD9E2EC'; font = { bold: true, sz: 11, color: { rgb: 'FF1F4E78' } } }
+      else                         { fill = r % 2 === 0 ? 'FFF6F9FC' : 'FFFFFFFF'; font = { sz: 10.5, color: { rgb: 'FF333333' } } }
+      ws[addr].s = {
+        fill: { patternType: 'solid', fgColor: { rgb: fill } },
+        font,
+        alignment: { horizontal: align, vertical: 'center', readingOrder: 2, wrapText: kind === 'header' },
+        border: _xlThin(),
+      }
+      if (c === DN_MONEY_C && typeof ws[addr].v === 'number') ws[addr].z = '"$"#,##0'
+    }
+  }
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'תעודות משלוח')
+  const today = new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(wb, 'תעודות_משלוח_לפי_סטטוס_' + today + '.xlsx', { bookType: 'xlsx' })
+}
 
 export default function DeliveryNotesView() {
   const [files, setFiles] = useState([])
@@ -233,6 +352,13 @@ export default function DeliveryNotesView() {
             {v === 'all' ? 'כל השווקים' : MARKET_LABELS[v]}
           </button>
         ))}
+        <button onClick={() => exportDeliveryNotesExcel(enriched)} disabled={enriched.length === 0}
+          style={{ marginInlineStart: 'auto', padding: '7px 16px', borderRadius: 'var(--radius)',
+            border: '0.5px solid var(--border-card)', background: '#f0f8ec', color: '#2a7a1a',
+            fontWeight: 600, fontSize: 13, cursor: enriched.length === 0 ? 'not-allowed' : 'pointer',
+            opacity: enriched.length === 0 ? 0.5 : 1 }}>
+          📥 ייצוא לאקסל (לפי סטטוס)
+        </button>
       </div>
 
       {/* טבלה מחולקת לפי לקוחות */}
