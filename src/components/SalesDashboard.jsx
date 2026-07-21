@@ -82,7 +82,7 @@ export default function SalesDashboard() {
 
   // פילוח שוק — שוק מקומי / נטפים / ייצוא (על כלל ההזמנות הפתוחות)
   const marketOrders = { local: [], netafim: [], export: [] }
-  orders.forEach(r => { marketOrders[marketSegment(r.sale_type_code, r.customer_name)].push(r) })
+  netOrders.forEach(r => { const seg = marketSegment(r.sale_type_code, r.customer_name); if (marketOrders[seg]) marketOrders[seg].push(r) })
   const marketAmt = k => marketOrders[k].reduce((s, r) => s + (r.remaining_amount || 0), 0)
 
   // Monthly breakdown — רק הזמנות נטו (ללא Drop/Consignment/India)
@@ -216,7 +216,7 @@ export default function SalesDashboard() {
       {/* Row 2b: פילוח שוק */}
       <div style={{ marginBottom: '1rem' }}>
         <div style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
-          🌍 פילוח לפי שוק (מכל ההזמנות הפתוחות)
+          🌍 פילוח לפי שוק (נטו — ללא Drop / Consignment / India)
         </div>
         <div className="kpi-row" style={{ marginBottom: 0 }}>
           {MARKET_KEYS.map(k => (
@@ -236,7 +236,7 @@ export default function SalesDashboard() {
         const invInternal = fileInvoices.filter(r => r.cat === 'Internal').reduce((s, r) => s + (r.invoice_amount || 0), 0)
         const invExternal = fileInvoices.filter(r => r.cat === 'External').reduce((s, r) => s + (r.invoice_amount || 0), 0)
         const invMarket = { local: [], netafim: [], export: [] }
-        fileInvoices.forEach(r => { invMarket[marketSegment(r.sale_type_code, r.name)].push(r) })
+        fileInvoices.forEach(r => { const seg = marketSegment(r.sale_type_code, r.name); if (invMarket[seg]) invMarket[seg].push(r) })
         const invMarketAmt = k => invMarket[k].reduce((s, r) => s + (r.invoice_amount || 0), 0)
         return (
           <div style={{ marginBottom: '1.5rem' }}>

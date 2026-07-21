@@ -36,7 +36,7 @@ export default function InvoicesView() {
   // פילוח שוק
   const segOf = r => marketSegment(r.sale_type_code, r.name)
   const mkt = { local: [], netafim: [], export: [] }
-  invoices.forEach(r => { mkt[segOf(r)].push(r) })
+  invoices.forEach(r => { const seg = segOf(r); if (mkt[seg]) mkt[seg].push(r) })
   const mktAmt = k => mkt[k].reduce((s,r)=>s+(r.invoice_amount||0),0)
 
   // Daily grouping for chart

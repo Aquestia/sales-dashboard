@@ -27,20 +27,30 @@ export function isNetafim(name) {
   return String(name || '').toUpperCase().includes('NETAFIM')
 }
 
-// הזמנות + חשבוניות (יש Sale type code): code 10 → מקומי · אחרת שם NETAFIM → נטפים · אחרת → ייצוא
+export function isConsignmentName(name) {
+  return String(name || '').toUpperCase().includes('CONSIGNMENT')
+}
+
+// הזמנות + חשבוניות (יש Sale type code): הקודים המיוחדים גוברים על נטפים —
+// 30=Drop · 40=Consignment · 50=India · 10=מקומי · אחרת שם NETAFIM (ולא Consignment) → נטפים · אחרת → ייצוא
 export function marketSegment(saleTypeCode, customerName) {
-  if (String(saleTypeCode || '').trim() === '10') return 'local'
-  if (isNetafim(customerName)) return 'netafim'
+  const code = String(saleTypeCode || '').trim()
+  if (code === '30') return 'drop'
+  if (code === '40') return 'consignment'
+  if (code === '50') return 'india'
+  if (code === '10') return 'local'
+  if (isNetafim(customerName) && !isConsignmentName(customerName)) return 'netafim'
   return 'export'
 }
 
-// תעודות משלוח (אין Sale type code): Currency ILS → מקומי · אחרת שם NETAFIM → נטפים · אחרת → ייצוא
+// תעודות משלוח (אין Sale type code): Currency ILS → מקומי · אחרת NETAFIM (ולא Consignment) → נטפים · אחרת → ייצוא
 export function marketSegmentByCurrency(currency, customerName) {
   if (String(currency || '').trim().toUpperCase() === 'ILS') return 'local'
-  if (isNetafim(customerName)) return 'netafim'
+  if (isNetafim(customerName) && !isConsignmentName(customerName)) return 'netafim'
   return 'export'
 }
 
-export const MARKET_LABELS = { local: 'שוק מקומי', netafim: 'נטפים', export: 'ייצוא' }
-export const MARKET_COLORS = { local: '#059669', netafim: '#7C3AED', export: '#185FA5' }
+// שלושת כרטיסי פילוח-השוק (הנטו). Drop/Consignment/India נספרים בקטגוריות הנפרדות שלהם.
 export const MARKET_KEYS = ['local', 'netafim', 'export']
+export const MARKET_LABELS = { local: 'שוק מקומי', netafim: 'נטפים', export: 'ייצוא', drop: 'Drop', consignment: 'Consignment', india: 'India' }
+export const MARKET_COLORS = { local: '#059669', netafim: '#7C3AED', export: '#185FA5', drop: '#9CA3AF', consignment: '#9CA3AF', india: '#9CA3AF' }
