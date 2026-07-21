@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { fmt, marketSegment, MARKET_LABELS, MARKET_COLORS, MARKET_KEYS } from '../utils/helpers'
+import { fmt, marketSegment, marketSegmentSimple, MARKET_LABELS, MARKET_COLORS, MARKET_KEYS } from '../utils/helpers'
 import { fetchSalesFiles, fetchSalesOrdersByFileId, fetchInvoicesDetail } from '../utils/db'
 
 const ORDER_COLS = [
@@ -236,7 +236,7 @@ export default function SalesDashboard() {
         const invInternal = fileInvoices.filter(r => r.cat === 'Internal').reduce((s, r) => s + (r.invoice_amount || 0), 0)
         const invExternal = fileInvoices.filter(r => r.cat === 'External').reduce((s, r) => s + (r.invoice_amount || 0), 0)
         const invMarket = { local: [], netafim: [], export: [] }
-        fileInvoices.forEach(r => { const seg = marketSegment(r.sale_type_code, r.name); if (invMarket[seg]) invMarket[seg].push(r) })
+        fileInvoices.forEach(r => { invMarket[marketSegmentSimple(r.sale_type_code, r.name)].push(r) })
         const invMarketAmt = k => invMarket[k].reduce((s, r) => s + (r.invoice_amount || 0), 0)
         return (
           <div style={{ marginBottom: '1.5rem' }}>

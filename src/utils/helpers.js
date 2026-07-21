@@ -43,10 +43,17 @@ export function marketSegment(saleTypeCode, customerName) {
   return 'export'
 }
 
+// פשוט (חשבוניות + כל מסך שאין בו הפרדת Consignment): 10 → מקומי · שם NETAFIM → נטפים · אחרת → ייצוא
+export function marketSegmentSimple(saleTypeCode, customerName) {
+  if (String(saleTypeCode || '').trim() === '10') return 'local'
+  if (isNetafim(customerName)) return 'netafim'
+  return 'export'
+}
+
 // תעודות משלוח (אין Sale type code): Currency ILS → מקומי · אחרת NETAFIM (ולא Consignment) → נטפים · אחרת → ייצוא
 export function marketSegmentByCurrency(currency, customerName) {
   if (String(currency || '').trim().toUpperCase() === 'ILS') return 'local'
-  if (isNetafim(customerName) && !isConsignmentName(customerName)) return 'netafim'
+  if (isNetafim(customerName)) return 'netafim'
   return 'export'
 }
 

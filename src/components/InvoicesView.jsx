@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fmt, marketSegment, MARKET_LABELS, MARKET_COLORS, MARKET_KEYS } from '../utils/helpers'
+import { fmt, marketSegmentSimple, MARKET_LABELS, MARKET_COLORS, MARKET_KEYS } from '../utils/helpers'
 import { fetchSalesFiles, fetchInvoicesDetail } from '../utils/db'
 
 export default function InvoicesView() {
@@ -34,7 +34,7 @@ export default function InvoicesView() {
   const extAmt      = invoices.filter(r=>r.cat==='External').reduce((s,r)=>s+(r.invoice_amount||0),0)
 
   // פילוח שוק
-  const segOf = r => marketSegment(r.sale_type_code, r.name)
+  const segOf = r => marketSegmentSimple(r.sale_type_code, r.name)
   const mkt = { local: [], netafim: [], export: [] }
   invoices.forEach(r => { const seg = segOf(r); if (mkt[seg]) mkt[seg].push(r) })
   const mktAmt = k => mkt[k].reduce((s,r)=>s+(r.invoice_amount||0),0)
