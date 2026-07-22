@@ -9,10 +9,15 @@ function safeDate(val) {
   try {
     const d = val instanceof Date ? val : new Date(val)
     if (isNaN(d)) return null
-    // Use LOCAL date to avoid UTC timezone shift (e.g. Israel UTC+3)
-    const y = d.getFullYear()
-    const m = String(d.getMonth()+1).padStart(2,'0')
-    const day = String(d.getDate()).padStart(2,'0')
+    // SheetJS converts Excel date serials to Date objects that can land a few
+    // seconds before local midnight (floating-point drift). In timezones ahead
+    // of UTC (e.g. Israel UTC+2/+3) that rolls the calendar day back by one.
+    // Snap to the nearest calendar day, timezone-independently, then read it.
+    const shifted = d.getTime() - d.getTimezoneOffset() * 60000
+    const snapped = new Date(Math.round(shifted / 86400000) * 86400000)
+    const y = snapped.getUTCFullYear()
+    const m = String(snapped.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(snapped.getUTCDate()).padStart(2, '0')
     return y + '-' + m + '-' + day
   } catch { return null }
 }
