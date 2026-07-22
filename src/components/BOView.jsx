@@ -183,6 +183,13 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
     return m
   }, [salesOrders])
 
+  // Main production order lookup (quantity + status)
+  const prodByNumber = useMemo(() => {
+    const m = {}
+    production.forEach(p => { m[p.production] = p })
+    return m
+  }, [production])
+
   // DR4/DR5 by PARENT production order
   const dr4ByParent = useMemo(() => {
     const m = {}
@@ -306,33 +313,30 @@ function CustomerGroup({ grp, cols, allocation, purchaseOrders, procurementNotes
                             {prodItems.length > 0 && (() => {
                               const DONE = ['Ended','Reported as finished']
                               const mainPrd = soProductionMap[r.doc]
-                              // DR4 + DR5 sub-orders for the main production order
+                              const mainRec = prodByNumber[mainPrd]
+                              // DR4 + DR5 sub-orders for the main production order (all active, incl. blocking with no material shortage)
                               const subOrders = [
                                 ...(dr4ByParent[mainPrd] || []).filter(d=>!DONE.includes(d.status)),
                                 ...(dr5ByParent[mainPrd] || []).filter(d=>!DONE.includes(d.status))
                               ]
-                              const subOrdersWithShortage = subOrders.filter(sub => {
-                                const subAlloc = (allocByNumber[sub.production_order] || []).filter(a=>a.missing_qty>0)
-                                return subAlloc.length > 0
-                              })
                               return (
                                 <div style={{ marginBottom: purchItems.length ? 12 : 0 }}>
                                   <div style={{ fontSize:12, fontWeight:600, color:'#6B21A8', marginBottom:4 }}>
-                                    🟣 חוסרי ייצור — הזמנה {r.doc} · פק"ע ראשית: {mainPrd||'—'}
+                                    🟣 חוסרי ייצור — הזמנה {r.doc} · פק"ע ראשית: {mainPrd||'—'}{mainRec ? ` · כמות להרכבה: ${Math.round(mainRec.quantity||0)} · סטטוס: ${mainRec.status||''}` : ''}
                                   </div>
-                                  {subOrdersWithShortage.length === 0 ? (
+                                  {subOrders.length === 0 ? (
                                     <div style={{fontSize:11,color:'#888',padding:'4px 8px'}}>
-                                      אין תת-פק"עות עם חוסרים פעילים
+                                      אין תת-פק"עות פעילות (עב"ש/צבע) — ההרכבה ממתינה לחומרים ישירים
                                     </div>
-                                  ) : subOrdersWithShortage.map((sub, si) => {
+                                  ) : subOrders.map((sub, si) => {
                                     const subAlloc = (allocByNumber[sub.production_order] || []).filter(a=>a.missing_qty>0)
                                     return (
                                       <div key={si} style={{marginBottom:8,padding:'6px 8px',background: sub.type==='עב"ש'?'#fef3c7':'#ede9fe',borderRadius:6,border:`0.5px solid ${sub.type==='עב"ש'?'#d97706':'#7c3aed'}`}}>
                                         <div style={{fontSize:11,fontWeight:600,marginBottom:6,color:sub.type==='עב"ש'?'#92400e':'#6B21A8'}}>
-                                          {sub.type==='עב"ש'?'🔧 עב"ש':'🎨 צבע'} — פק"ע: {sub.production_order} · {sub.item_number} · סטטוס: {sub.status}
+                                          {sub.type==='עב"ש'?'🔧 עב"ש':'🎨 צבע'} — פק"ע: {sub.production_order} · {sub.item_number} · כמות: {Math.round(sub.quantity||0)}{sub.quantity_for_parent_po?` (לאב: ${Math.round(sub.quantity_for_parent_po)})`:''} · סטטוס: {sub.status}
                                         </div>
                                         {subAlloc.length === 0 ? (
-                                          <div style={{fontSize:10,color:'#888'}}>אין חוסרים בהקצאה החישובית לתת-פק"ע זו</div>
+                                          <div style={{fontSize:10,color:'#4b5563'}}>✔ אין חוסר חומרים לתת-פק"ע זו — בתהליך/ממתינה (מעכבת את ההרכבה)</div>
                                         ) : (
                                           <table style={{fontSize:10,width:'100%',borderCollapse:'collapse'}}>
                                             <thead><tr>
