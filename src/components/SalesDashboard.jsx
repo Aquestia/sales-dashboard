@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
-import { fmt, marketSegment, marketSegmentSimple, MARKET_LABELS, MARKET_COLORS, MARKET_KEYS } from '../utils/helpers'
+import { fmt, marketSegment, marketSegmentSimple, weekLabel, MARKET_LABELS, MARKET_COLORS, MARKET_KEYS } from '../utils/helpers'
 import { fetchSalesFiles, fetchSalesOrdersByFileId, fetchInvoicesDetail } from '../utils/db'
+import { exportStyledExcel, EXPORT_BTN_STYLE } from '../utils/excelExport'
 
 const ORDER_COLS = [
   ['sales_order','הזמנה'],
@@ -16,6 +17,47 @@ const ORDER_COLS = [
   ['requested_ship_date','תאריך מבוקש'],
   ['ordered_quantity','כמות'],
   ['remaining_amount','סכום $'],
+]
+
+// ── כל העמודות מלשונית ההזמנות (sales_open_orders) — לייצוא Excel מלא ──
+const FULL_EXPORT_COLS = [
+  { key:'sales_order',         header:'הזמנה',              width:14, align:'center' },
+  { key:'line_number',         header:'שורה',               width:7,  align:'center' },
+  { key:'customer_account',    header:'לקוח',               width:11, align:'center' },
+  { key:'customer_name',       header:'שם לקוח',            width:32 },
+  { key:'cat',                 header:'סיווג לקוח',         width:11, align:'center' },
+  { key:'_market',             header:'פילוח שוק',          width:12, align:'center',
+    value: r => MARKET_LABELS[marketSegment(r.sale_type_code, r.customer_name)] || '' },
+  { key:'sale_type_code',      header:'קוד סוג מכירה',      width:13, align:'center' },
+  { key:'item_number',         header:'מק"ט',               width:19, align:'center' },
+  { key:'item_group',          header:'קב. פריט',           width:10, align:'center' },
+  { key:'family',              header:'משפחה',              width:12, align:'center' },
+  { key:'pool',                header:'מאגר',               width:10, align:'center' },
+  { key:'production_number',   header:'פק"ע',               width:14, align:'center' },
+  { key:'status',              header:'סטטוס',              width:13, align:'center' },
+  { key:'mode_of_delivery',    header:'משלוח',              width:9,  align:'center' },
+  { key:'confirmed_ship_date', header:'תאריך אספקה מאושר',  width:16, align:'center' },
+  { key:'requested_ship_date', header:'תאריך מבוקש',        width:14, align:'center' },
+  { key:'container_date',      header:'תאריך מכולה',        width:14, align:'center' },
+  { key:'_week',               header:'שבוע תכנון',         width:12, align:'center',
+    value: r => weekLabel(r.planning_priority) },
+  { key:'ordered_quantity',    header:'כמות שהוזמנה',       width:12, type:'number' },
+  { key:'deliver_remainder',   header:'יתרה לאספקה',        width:12, type:'number' },
+  { key:'qty_picked',          header:'כמות שלוקטה',        width:12, type:'number' },
+  { key:'qty_packed',          header:'כמות שנארזה',        width:12, type:'number' },
+  { key:'remaining_amount',    header:'סכום $',             width:14, type:'money' },
+  { key:'gm_amount',           header:'GM $',               width:13, type:'money' },
+  { key:'gm_pct',              header:'GM %',               width:9,  type:'decimal' },
+  { key:'zip_code',            header:'מיקוד',              width:10, align:'center' },
+]
+
+// עמודות טבלת הסיכום החודשי
+const MONTHLY_EXPORT_COLS = [
+  { key:'label',    header:'חודש',      width:16, align:'right'  },
+  { key:'all',      header:'סה"כ',      width:16, type:'money'   },
+  { key:'internal', header:'פנימיים',   width:16, type:'money'   },
+  { key:'external', header:'חיצוניים',  width:16, type:'money'   },
+  { key:'lines',    header:'שורות',     width:10, type:'number'  },
 ]
 
 function monthKey(dateStr) {
@@ -131,7 +173,71 @@ export default function SalesDashboard() {
 
   function isActive(type, key, cat) {
     return selected?.type === type && selected?.key === key && selected?.cat === cat
-  }  return (
+  }
+
+  const sortedDetailRows = useMemo(() => {
+    return [...detailRows].sort((a, b) => {
+      const av = a[sortCol] ?? '', bv = b[sortCol] ?? ''
+      const isNum = !isNaN(parseFloat(av)) && av !== ''
+      const cmp = isNum ? parseFloat(av) - parseFloat(bv) : String(av).localeCompare(String(bv), 'he')
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [detailRows, sortCol, sortDir])
+
+  const activeFile = files.find(f => f.id === selectedFileId)
+  const fileLabel = activeFile ? `${activeFile.batch_date} · ${activeFile.filename}` : ''
+
+  const detailLabel = !selected ? ''
+    : selected.type === 'month'        ? `${monthLabel(selected.key)}${selected.cat === 'internal' ? ' — פנימיים' : selected.cat === 'external' ? ' — חיצוניים' : ''}`
+    : selected.type === 'unconfirmed'  ? 'טרם אושר'
+    : selected.type === 'market'       ? MARKET_LABELS[selected.key]
+    : selected.type === 'drop'         ? 'Drop Order'
+    : selected.type === 'consignment'  ? 'Consignment'
+    : selected.type === 'india'        ? 'Aquestia India'
+    : selected.type === 'net'          ? 'נטו — ללא Drop/Consignment/India'
+    : selected.type === 'net-internal' ? 'נטו — לקוחות פנימיים'
+    : selected.type === 'net-external' ? 'נטו — לקוחות חיצוניים'
+    : selected.type === 'internal'     ? 'לקוחות פנימיים'
+    : selected.type === 'external'     ? 'לקוחות חיצוניים'
+    : 'כל ההזמנות'
+
+  const safeName = t => String(t || '').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '_')
+  const today = () => new Date().toISOString().slice(0, 10)
+
+  // ייצוא טבלת הסיכום החודשי
+  function exportMonthly() {
+    const rows = months.map(m => ({
+      label: monthLabel(m.key),
+      all: m.all, internal: m.internal, external: m.external, lines: m.rows.length,
+    }))
+    if (unconfirmed.length > 0) {
+      rows.push({ label: 'טרם אושר', all: unconfirmedAmt, internal: '', external: '', lines: unconfirmed.length })
+    }
+    exportStyledExcel({
+      columns: MONTHLY_EXPORT_COLS,
+      rows,
+      filename: `דוח_מכירות_לפי_חודש_${today()}`,
+      sheetName: 'לפי חודש',
+      title: 'דוח מכירות — תאריך אספקה מאושר לפי חודש',
+      subtitle: fileLabel ? `קובץ פעיל: ${fileLabel}` : '',
+      totals: { label: 'סה"כ', all: totalAll, internal: totalInternal, external: totalExternal, lines: orders.length },
+    })
+  }
+
+  // ייצוא רשימת ההזמנות — כל העמודות מלשונית ההזמנות
+  function exportDetail() {
+    const amt = sortedDetailRows.reduce((s, r) => s + (r.remaining_amount || 0), 0)
+    exportStyledExcel({
+      columns: FULL_EXPORT_COLS,
+      rows: sortedDetailRows,
+      filename: `הזמנות_${safeName(detailLabel)}_${today()}`,
+      sheetName: 'הזמנות',
+      title: `רשימת הזמנות — ${detailLabel}`,
+      subtitle: `${sortedDetailRows.length} שורות · $${fmt(amt)}${fileLabel ? ' · ' + fileLabel : ''}`,
+    })
+  }
+
+  return (
     <div>
       <h2 className="page-heading">דוח מכירות — הזמנות פתוחות</h2>
 
@@ -275,7 +381,14 @@ export default function SalesDashboard() {
 
       {/* Monthly table */}
       <div className="section-box" style={{ marginBottom: '1.5rem' }}>
-        <div className="section-title">תאריך אספקה מאושר — לפי חודש</div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, marginBottom:12 }}>
+          <div className="section-title" style={{ margin:0 }}>תאריך אספקה מאושר — לפי חודש</div>
+          {months.length > 0 && (
+            <button onClick={exportMonthly} style={EXPORT_BTN_STYLE} title="ייצוא טבלת הסיכום החודשי ל-Excel">
+              ⬇ ייצוא Excel
+            </button>
+          )}
+        </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
@@ -359,16 +472,17 @@ export default function SalesDashboard() {
         <div className="section-box">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div className="section-title" style={{ margin: 0 }}>
-              {selected.type === 'month'
-                ? `${monthLabel(selected.key)}${selected.cat === 'internal' ? ' — פנימיים' : selected.cat === 'external' ? ' — חיצוניים' : ''}`
-                : selected.type === 'market' ? MARKET_LABELS[selected.key]
-                : selected.type === 'internal' ? 'לקוחות פנימיים'
-                : selected.type === 'external' ? 'לקוחות חיצוניים'
-                : 'כל ההזמנות'}
+              {detailLabel}
               {' '}— {detailRows.length} שורות · ${fmt(detailRows.reduce((s,r)=>s+(r.remaining_amount||0),0))}
             </div>
-            <button onClick={() => setSelected(null)}
-              style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>✕ סגור</button>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <button onClick={exportDetail} style={EXPORT_BTN_STYLE}
+                title="ייצוא כל הנתונים מלשונית ההזמנות ל-Excel">
+                ⬇ ייצוא Excel (כל העמודות)
+              </button>
+              <button onClick={() => setSelected(null)}
+                style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>✕ סגור</button>
+            </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -387,12 +501,7 @@ export default function SalesDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {[...detailRows].sort((a,b) => {
-                  const av=a[sortCol]??'', bv=b[sortCol]??''
-                  const isNum = !isNaN(parseFloat(av)) && av!==''
-                  const cmp = isNum ? parseFloat(av)-parseFloat(bv) : String(av).localeCompare(String(bv),'he')
-                  return sortDir==='asc' ? cmp : -cmp
-                }).map((r, i) => (
+                {sortedDetailRows.map((r, i) => (
                   <tr key={i} style={{ background: i%2===0?'var(--surface-1)':'var(--surface-2)' }}>
                     {ORDER_COLS.map(([k]) => (
                       <td key={k} style={{ padding:'6px 8px', borderBottom:'0.5px solid var(--border)', whiteSpace:'nowrap' }}>
