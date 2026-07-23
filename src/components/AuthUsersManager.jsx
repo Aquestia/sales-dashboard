@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchAuthorizedUsers, addAuthorizedUser, updateAuthorizedUser, deleteAuthorizedUser } from '../utils/db'
+import { fetchAuthorizedUsers, addAuthorizedUser, updateAuthorizedUser, deleteAuthorizedUser, isSuperAdmin } from '../utils/db'
 
 const EMPTY = { employee_number: '', first_name: '', last_name: '', role: '', is_admin: false }
 
@@ -81,34 +81,39 @@ export default function AuthUsersManager({ currentUser }) {
           <tbody>
             {users.map(u => {
               const self = u.id === currentUser.id
+              const superAdmin = isSuperAdmin(u)
+              const locked = self || superAdmin
+              const lockTitle = superAdmin ? 'מנהל ראשי — לא ניתן לחסום או למחוק' : (self ? 'לא ניתן לחסום את עצמך' : '')
               return (
                 <tr key={u.id}>
                   <td style={{ ...td, fontWeight: 600 }}>
                     {u.employee_number}
-                    {u.is_admin && <span style={{ marginRight: 6, fontSize: 10, padding: '1px 6px', borderRadius: 8, background: 'var(--blue-bg)', color: 'var(--blue-dark)' }}>מנהל</span>}
+                    {superAdmin
+                      ? <span style={{ marginRight: 6, fontSize: 10, padding: '1px 6px', borderRadius: 8, background: '#FAEEDA', color: '#854F0B' }}>🔒 מנהל ראשי</span>
+                      : u.is_admin && <span style={{ marginRight: 6, fontSize: 10, padding: '1px 6px', borderRadius: 8, background: 'var(--blue-bg)', color: 'var(--blue-dark)' }}>מנהל</span>}
                   </td>
                   <td style={td}>{u.first_name}</td>
                   <td style={td}>{u.last_name}</td>
                   <td style={td}>{u.role}</td>
                   <td style={td}>
                     <span style={{ fontSize: 12, padding: '2px 10px', borderRadius: 10,
-                      background: u.authorized ? '#e6f4ea' : '#fbe9e7',
-                      color: u.authorized ? '#2D7D46' : '#b3261e' }}>
-                      {u.authorized ? 'מורשה' : 'חסום'}
+                      background: (u.authorized || superAdmin) ? '#e6f4ea' : '#fbe9e7',
+                      color: (u.authorized || superAdmin) ? '#2D7D46' : '#b3261e' }}>
+                      {(u.authorized || superAdmin) ? 'מורשה' : 'חסום'}
                     </span>
                   </td>
                   <td style={td}>
-                    <button onClick={() => toggle(u)} disabled={self}
-                      title={self ? 'לא ניתן לחסום את עצמך' : ''}
-                      style={{ padding: '5px 12px', borderRadius: 'var(--radius)', fontSize: 12, cursor: self ? 'not-allowed' : 'pointer',
+                    <button onClick={() => toggle(u)} disabled={locked}
+                      title={lockTitle}
+                      style={{ padding: '5px 12px', borderRadius: 'var(--radius)', fontSize: 12, cursor: locked ? 'not-allowed' : 'pointer',
                         border: '0.5px solid ' + (u.authorized ? 'var(--red)' : 'var(--border-card)'),
                         background: u.authorized ? '#fff5f4' : 'var(--bg-row)',
-                        color: u.authorized ? '#b3261e' : 'var(--text-sub)', opacity: self ? 0.4 : 1 }}>
+                        color: u.authorized ? '#b3261e' : 'var(--text-sub)', opacity: locked ? 0.4 : 1 }}>
                       {u.authorized ? '🚫 חסום' : '✓ שחרר'}
                     </button>
-                    <button onClick={() => remove(u)} disabled={self}
-                      style={{ marginRight: 6, padding: '5px 10px', borderRadius: 'var(--radius)', fontSize: 12, cursor: self ? 'not-allowed' : 'pointer',
-                        border: '0.5px solid var(--border-card)', background: 'var(--bg-row)', color: 'var(--text-muted)', opacity: self ? 0.4 : 1 }}>
+                    <button onClick={() => remove(u)} disabled={locked} title={lockTitle}
+                      style={{ marginRight: 6, padding: '5px 10px', borderRadius: 'var(--radius)', fontSize: 12, cursor: locked ? 'not-allowed' : 'pointer',
+                        border: '0.5px solid var(--border-card)', background: 'var(--bg-row)', color: 'var(--text-muted)', opacity: locked ? 0.4 : 1 }}>
                       🗑
                     </button>
                   </td>

@@ -344,6 +344,23 @@ export async function fetchAuthorizedUsers() {
 }
 
 // אימות לפי קוד כניסה (מספר עובד). מחזיר את השורה או null אם לא קיים.
+// מנהל ראשי קבוע — לא ניתן לחסימה או למחיקה בשום מצב
+export const SUPER_ADMIN_EMPLOYEE = '6735'
+
+const SUPER_ADMIN_FALLBACK = {
+  id: null,
+  employee_number: SUPER_ADMIN_EMPLOYEE,
+  first_name: 'שי',
+  last_name: 'שמאי',
+  role: 'מנהל מחלקת תפ"י',
+  authorized: true,
+  is_admin: true,
+}
+
+export function isSuperAdmin(u) {
+  return !!u && String(u.employee_number).trim() === SUPER_ADMIN_EMPLOYEE
+}
+
 export async function authByEmployeeNumber(code) {
   const { data, error } = await supabase
     .from('sales_authorized_users')
@@ -351,6 +368,10 @@ export async function authByEmployeeNumber(code) {
     .eq('employee_number', String(code).trim())
     .maybeSingle()
   if (error) throw new Error(error.message)
+  // המנהל הראשי תמיד מקבל גישה מלאה — גם אם השורה נחסמה או נמחקה
+  if (String(code).trim() === SUPER_ADMIN_EMPLOYEE) {
+    return { ...SUPER_ADMIN_FALLBACK, ...(data || {}), authorized: true, is_admin: true }
+  }
   return data || null
 }
 
@@ -373,6 +394,8 @@ export async function addAuthorizedUser(u) {
 }
 
 export async function updateAuthorizedUser(id, fields) {
+  const { data: target } = await supabase.from('sales_authorized_users').select('employee_number').eq('id', id).maybeSingle()
+  if (isSuperAdmin(target)) throw new Error('לא ניתן לשנות את הרשאות המנהל הראשי')
   const { error } = await supabase
     .from('sales_authorized_users')
     .update({ ...fields, updated_at: new Date().toISOString() })
@@ -381,6 +404,8 @@ export async function updateAuthorizedUser(id, fields) {
 }
 
 export async function deleteAuthorizedUser(id) {
+  const { data: target } = await supabase.from('sales_authorized_users').select('employee_number').eq('id', id).maybeSingle()
+  if (isSuperAdmin(target)) throw new Error('לא ניתן למחוק את המנהל הראשי')
   const { error } = await supabase.from('sales_authorized_users').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
